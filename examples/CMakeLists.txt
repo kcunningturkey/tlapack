@@ -22,6 +22,26 @@ add_custom_command(
     && echo ""
 )
 
+# add the example pbstf
+add_subdirectory( pbstf )
+    add_custom_command(
+      OUTPUT run-all-examples-cmd APPEND
+      COMMAND
+        echo "- example_pbstf ----------------" &&
+        "${CMAKE_CURRENT_BINARY_DIR}/pbstf/example_pbstf${CMAKE_EXECUTABLE_SUFFIX}"
+        && echo ""
+    )
+
+    # add the example pbtrf
+add_subdirectory( pbtrf )
+    add_custom_command(
+      OUTPUT run-all-examples-cmd APPEND
+      COMMAND
+        echo "- example_pbtrf ----------------" &&
+        "${CMAKE_CURRENT_BINARY_DIR}/pbtrf/example_pbtrf${CMAKE_EXECUTABLE_SUFFIX}"
+        && echo ""
+    )
+
 # add the eigenvalues example
 add_subdirectory( eigenvalues )
 add_custom_command(
@@ -70,14 +90,14 @@ find_package( LAPACK QUIET )
 if( LAPACK_FOUND )
   find_package( LAPACKE QUIET )
   if( LAPACKE_FOUND )
-    add_subdirectory( potrf )
-    add_custom_command(
-      OUTPUT run-all-examples-cmd APPEND
-      COMMAND
-        echo "- example_potrf ----------------" &&
-        "${CMAKE_CURRENT_BINARY_DIR}/potrf/example_potrf${CMAKE_EXECUTABLE_SUFFIX}"
-        && echo ""
-    )
+    # add_subdirectory( potrf )
+    # add_custom_command(
+    #   OUTPUT run-all-examples-cmd APPEND
+    #   COMMAND
+    #     echo "- example_potrf ----------------" &&
+    #     "${CMAKE_CURRENT_BINARY_DIR}/potrf/example_potrf${CMAKE_EXECUTABLE_SUFFIX}"
+    #     && echo ""
+    # )
   else()
     mark_as_advanced( FORCE LAPACKE_DIR )
   endif()
