@@ -56,7 +56,7 @@ void run(size_t m, size_t n)
     // Define parameters for banded and consolidated matrices
 
     idx_t kd = 2;
-    tlapack::Uplo uplo = tlapack::Uplo::Upper;
+    tlapack::Uplo uplo = tlapack::Uplo::Lower;
 
     // Declacre matrices
     std::vector<T> A_;
@@ -135,6 +135,8 @@ void run(size_t m, size_t n)
     std::cout << "\npbtrf = " << std::endl;
     printMatrix(AB);
 
+    real_t normPotrf = lange(tlapack::FROB_NORM, A);
+
     // potrf(uplo, A);
     // std::cout << "\npotrf = " << std::endl;
     // printMatrix(A);
@@ -177,10 +179,8 @@ void run(size_t m, size_t n)
         // printMatrix(AB);
     }
 
-    std::cout << std::endl << "mult_uhu = ";
+    std::cout << std::endl << "mult = ";
     printMatrix(blAH2);
-
-    real_t normPotrf = lange(tlapack::FROB_NORM, A);
 
     for (idx_t j = 0; j < n; j++) {
         for (idx_t i = 0; i < n; i++){
