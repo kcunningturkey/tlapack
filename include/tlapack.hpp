@@ -59,6 +59,7 @@
 #include "tlapack/blas/syrk.hpp"
 #include "tlapack/blas/trmm.hpp"
 #include "tlapack/blas/trsm.hpp"
+#include "tlapack/blas/trsm_b.hpp"
 
 // =============================================================================
 // Template LAPACK

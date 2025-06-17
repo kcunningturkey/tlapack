@@ -13,6 +13,7 @@
 
 // <T>LAPACK
 #include <tlapack/lapack/pbtf2.hpp>
+#include <tlapack/lapack/pbtrf.hpp>
 #include <tlapack/lapack/potrf.hpp>
 #include <tlapack/lapack/lange.hpp>
 #include <tlapack/lapack/mult_uhu.hpp>
@@ -56,13 +57,15 @@ void run(size_t m, size_t n)
     // Define parameters for banded and consolidated matrices
 
     idx_t kd = 2;
-    tlapack::Uplo uplo = tlapack::Uplo::Lower;
+    tlapack::Uplo uplo = tlapack::Uplo::Upper;
 
     // Declacre matrices
     std::vector<T> A_;
     auto A = new_matrix(A_, m, n);
     std::vector<T> blAH_;
-    auto blAH = new_matrix(blAH_, m, n);
+    auto blAH = new_matrix(blAH_, kd + 1, n);
+    // std::vector<T> blAH_;
+    // auto blAH = new_matrix(blAH_, m, n);
     std::vector<T> blAH2_;
     auto blAH2 = new_matrix(blAH2_, m, n);
     std::vector<T> AB_;
@@ -107,7 +110,6 @@ void run(size_t m, size_t n)
             }
         }
     }
-  
 
     // Create matrix AB depending on if A is upper or lower
     if (uplo == tlapack::Uplo::Upper) {
@@ -126,71 +128,111 @@ void run(size_t m, size_t n)
                 AB(i - j, j) = A(i, j);
             }
         }
-    }
-    
+    }    
+
+    std::cout << std::endl << "AB before = ";
+    printMatrix(AB);  
+
     std::cout << std::endl << "A before = ";
     printMatrix(A);
 
-    pbtf2(uplo, AB);
-    std::cout << "\npbtrf = " << std::endl;
-    printMatrix(AB);
+    real_t normA = lange(tlapack::FROB_NORM, A);
+    lacpy(tlapack::Uplo::General, AB, blAH);
 
-    real_t normPotrf = lange(tlapack::FROB_NORM, A);
-
-    // potrf(uplo, A);
-    // std::cout << "\npotrf = " << std::endl;
-    // printMatrix(A);
-
-    if (uplo == tlapack::Uplo::Upper) {
-        for (idx_t j = 0; j < n; j++) {
-            for (idx_t i = std::max(static_cast<int>(0), static_cast<int>(j - kd)); i < j+1; i++){
-                blAH(i, j) = AB(i + kd -j, j);
-            }
-        }
-    lacpy(tlapack::Uplo::Upper, blAH, blAH2);
-    std::cout << std::endl << "blAH = ";
+    lacpy(tlapack::Uplo::General, A, blAH2);
+    
+    std::cout << "blAH" << std::endl;
     printMatrix(blAH);
 
-    mult_uhu(blAH2);
-    }
-    else {
-        for (idx_t j = 0; j < n; j++) {
-            for (idx_t i = 0; i < std::min(static_cast<int>(kd + 1), static_cast<int>(n-j)); i++) {
-                //if (i + j < n)
-                    blAH(i + j, j) = AB(i, j);
-            }
-            // for (idx_t i = 0; i < std::min(static_cast<int>(n), static_cast<int>(j + kd + 1)); i++) {
-            //     blAH(i, j) = AB(i - j, j)
-            // }
-        }
-        lacpy(tlapack::Uplo::Lower, blAH, blAH2);
-        std::cout << std::endl << "blAH = ";
-        printMatrix(blAH);
-
-        mult_llh(blAH2);
-    }
-
-
-    // Print verbose
-    if (verbose) {
-        // std::cout << std::endl << "potrf = ";
-        // printMatrix(A);
-        // std::cout << std::endl << "pbtrf = ";
-        // printMatrix(AB);
-    }
-
-    std::cout << std::endl << "mult = ";
+    std::cout << "blAH2" << std::endl;
     printMatrix(blAH2);
+
+    pbtrf(uplo, A);
+
+    pbtf2(uplo, blAH);
+
+    std::cout << "\npbtrf" << std::endl;
+    printMatrix(A);
+
+    std::cout << "\nlevel 0 factor" << std::endl;
+    printMatrix(blAH);
+
+    mult_uhu(A);
 
     for (idx_t j = 0; j < n; j++) {
         for (idx_t i = 0; i < n; i++){
             blAH2(i, j) = blAH2(i,j) - A(i, j);
         }
-    }
+    } 
 
-    real_t normPbtrf = lange(tlapack::FROB_NORM, blAH2);
+    real_t normB = lange(tlapack::FROB_NORM, blAH2);
 
-    std::cout << "\nnorm of subtraction is " << normPbtrf/normPotrf << std::endl;
+    std::cout << "\nThe norm is " << normB/normA << std::endl;
+    
+    //----------------------------------------------------------level0---------------------------------------------
+    // std::cout << std::endl << "A before = ";
+    // printMatrix(A);
+
+    // pbtf2(uplo, AB);
+    // std::cout << "\npbtrf = " << std::endl;
+    // printMatrix(AB);
+
+    // real_t normPotrf = lange(tlapack::FROB_NORM, A);
+
+    // // potrf(uplo, A);
+    // // std::cout << "\npotrf = " << std::endl;
+    // // printMatrix(A);
+
+    // if (uplo == tlapack::Uplo::Upper) {
+    //     for (idx_t j = 0; j < n; j++) {
+    //         for (idx_t i = std::max(static_cast<int>(0), static_cast<int>(j - kd)); i < j+1; i++){
+    //             blAH(i, j) = AB(i + kd -j, j);
+    //         }
+    //     }
+    // lacpy(tlapack::Uplo::Upper, blAH, blAH2);
+    // std::cout << std::endl << "blAH = ";
+    // printMatrix(blAH);
+
+    // mult_uhu(blAH2);
+    // }
+    // else {
+    //     for (idx_t j = 0; j < n; j++) {
+    //         for (idx_t i = 0; i < std::min(static_cast<int>(kd + 1), static_cast<int>(n-j)); i++) {
+    //             //if (i + j < n)
+    //                 blAH(i + j, j) = AB(i, j);
+    //         }
+    //         // for (idx_t i = 0; i < std::min(static_cast<int>(n), static_cast<int>(j + kd + 1)); i++) {
+    //         //     blAH(i, j) = AB(i - j, j)
+    //         // }
+    //     }
+    //     lacpy(tlapack::Uplo::Lower, blAH, blAH2);
+    //     std::cout << std::endl << "blAH = ";
+    //     printMatrix(blAH);
+
+    //     mult_llh(blAH2);
+    // }
+
+
+    // // Print verbose
+    // if (verbose) {
+    //     // std::cout << std::endl << "potrf = ";
+    //     // printMatrix(A);
+    //     // std::cout << std::endl << "pbtrf = ";
+    //     // printMatrix(AB);
+    // }
+
+    // std::cout << std::endl << "mult = ";
+    // printMatrix(blAH2);
+
+    // for (idx_t j = 0; j < n; j++) {
+    //     for (idx_t i = 0; i < n; i++){
+    //         blAH2(i, j) = blAH2(i,j) - A(i, j);
+    //     }
+    // }
+
+    // real_t normPbtrf = lange(tlapack::FROB_NORM, blAH2);
+
+    // std::cout << "\nnorm of subtraction is " << normPbtrf/normPotrf << std::endl;
 
 
 }
@@ -208,7 +250,7 @@ int main(int argc, char** argv)
     // run<std::complex<double>>(m, n);
     // printf("-----------------------\n");
     // Default arguments
-    m = 5;
+    m = 9;
     n = m;
 
     srand(3);  // Init random seed
