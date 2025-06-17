@@ -1,5 +1,5 @@
-#ifndef TLAPACK_PBTRF_HH
-#define TLAPACK_PBTRF_HH
+#ifndef TLAPACK_PBTF2_HH
+#define TLAPACK_PBTF2_HH
 
 #include "tlapack/base/utils.hpp"
 
@@ -20,7 +20,7 @@ void print2Matrix(const matrix_t& A)
 }
 
 template <TLAPACK_UPLO uplo_t, TLAPACK_SMATRIX matrix_t>
-void pbtrf(uplo_t uplo, matrix_t& AB)
+void pbtf2(uplo_t uplo, matrix_t& AB)
 {
     using T = tlapack::type_t<matrix_t>;
     using idx_t = tlapack::size_type<matrix_t>;
@@ -73,12 +73,6 @@ void pbtrf(uplo_t uplo, matrix_t& AB)
                     AB(row1, col1) -= conj(AB(row2, col2)) * AB(row3, col3);
                 else
                     AB(row1, col1) -= AB(row2, col2) * AB(row3, col3);
-                // if (row2==row3 && col2 == col3)
-                //     AB(row1, col1) -= real(AB(row2, col2)) * real(AB(row2, col2)) + imag(AB(row3, col3)) * imag(AB(row3, col3));
-                // else
-                    
-                // AB(row1, col1) -= complex<T>(real(AB(row2, col2)), (real_t(-1) * imag(AB(row2, col2)))) * AB(row3, col3);
-                // AB(row1, col1) = conj(AB(row2, col2));
             }
             ++k_loop;
         }

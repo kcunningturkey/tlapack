@@ -12,7 +12,7 @@
 #include <tlapack/plugins/legacyArray.hpp>
 
 // <T>LAPACK
-#include <tlapack/lapack/pbtrf.hpp>
+#include <tlapack/lapack/pbtf2.hpp>
 #include <tlapack/lapack/potrf.hpp>
 #include <tlapack/lapack/lange.hpp>
 #include <tlapack/lapack/mult_uhu.hpp>
@@ -131,7 +131,7 @@ void run(size_t m, size_t n)
     std::cout << std::endl << "A before = ";
     printMatrix(A);
 
-    tlapack::pbtrf(uplo, AB);
+    pbtf2(uplo, AB);
     std::cout << "\npbtrf = " << std::endl;
     printMatrix(AB);
 
