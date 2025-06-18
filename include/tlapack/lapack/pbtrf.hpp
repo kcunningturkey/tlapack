@@ -44,70 +44,80 @@ void trsm_b(matrixA_t& A, matrixB_t& B, std::size_t kd)
     }
 }
 
-// template <typename m
-// {
-//     for (idx_t j = 0; j < n; ++j) {
-//         for (idx_t i = 0; i < j; ++i) {
-//             TA sum(0);
-//             for (idx_t l = 0; l < k; ++l)
-//                 sum += conj(A(l, i)) * A(l, j);
-//             C(i, j) = alpha * sum + beta * C(i, j);
-//         }
-//         real_type<TA> sum(0);
-//         for (idx_t l = 0; l < k; ++l)
-//             sum +=
-//                 real(A(l, j)) * real(A(l, j)) + imag(A(l, j)) * imag(A(l, j));
-//         C(j, j) = alpha * sum + beta * real(C(j, j));
-//     }
+template <typename matrixA_t, typename matrixC_t>
+void herk_b(matrixA_t& A, matrixC_t& C, std::size_t kd)
+{
+    using TA = tlapack::type_t<matrixA_t>;
+    using idx_t = tlapack::size_type<matrixA_t>;
+    using real_t = tlapack::real_type<TA>;
 
-    template <TLAPACK_UPLO uplo_t, TLAPACK_SMATRIX matrix_t>
-    void pbtrf(uplo_t uplo, matrix_t & A, std::size_t kd)
-    {
-        using T = tlapack::type_t<matrix_t>;
-        using idx_t = tlapack::size_type<matrix_t>;
-        using real_t = tlapack::real_type<T>;
-        using range = pair<idx_t, idx_t>;
+    idx_t k = nrows(A);
+    real_t beta = 1;
+    real_t alpha = -1;
 
-        using std::complex;
-        using std::conj;
-        using std::cout;
-        using std::endl;
-        using std::min;
-        using std::sqrt;
-
-        const idx_t n = ncols(A);
-        const idx_t n0 = n / 2;
-
-        auto A00 = slice(A, range(0, n0), range(0, n0));
-        auto A01 = slice(A, range(0, n0), range(n0, n));
-        auto A11 = slice(A, range(n0, n), range(n0, n));
-        std::cout << "\ndone slices" << std::endl;
-
-        // std::cout << "slice A00 = " << std::endl;
-        // printaMatrix(A00);
-
-        // std::cout << "\nslice A01 = " << std::endl;
-        // printaMatrix(A01);
-
-        // std::cout << "\nslice A11 = " << std::endl;
-        // printaMatrix(A11);
-
-        potrf(uplo, A00);
-        std::cout << "\nrecursion done" << std::endl;
-
-        trsm_b(A00, A01, kd);
-        std::cout << "trsm done" << std::endl;
-
-        // std::cout << "\nA01 = " << std::endl;
-        // printaMatrix(A01);
-
-        herk(uplo, Op::ConjTrans, real_t(-1), A01, real_t(1), A11);
-
-        potrf(uplo, A11);
-
-        // std::cout << "\nA11 = " << std::endl;
-        // printaMatrix(A11);
+    for (idx_t j = 0; j < kd; ++j) {
+        for (idx_t i = 0; i < j; ++i) {
+            TA sum(0);
+            for (idx_t l = k - kd + j; l < k; ++l){
+                sum += conj(A(l, i)) * A(l, j);
+            }
+            C(i, j) = alpha * sum + beta * C(i, j);
+        }
+        real_type<TA> sum(0);
+        for (idx_t l = k - kd; l < k; ++l)
+            sum +=
+                real(A(l, j)) * real(A(l, j)) + imag(A(l, j)) * imag(A(l, j));
+        C(j, j) = alpha * sum + beta * real(C(j, j));
     }
+}
+template <TLAPACK_UPLO uplo_t, TLAPACK_SMATRIX matrix_t>
+void pbtrf(uplo_t uplo, matrix_t& A, std::size_t kd)
+{
+    using T = tlapack::type_t<matrix_t>;
+    using idx_t = tlapack::size_type<matrix_t>;
+    using real_t = tlapack::real_type<T>;
+    using range = pair<idx_t, idx_t>;
+
+    using std::complex;
+    using std::conj;
+    using std::cout;
+    using std::endl;
+    using std::min;
+    using std::sqrt;
+
+    const idx_t n = ncols(A);
+    const idx_t n0 = n / 2;
+
+    auto A00 = slice(A, range(0, n0), range(0, n0));
+    auto A01 = slice(A, range(0, n0), range(n0, n));
+    auto A11 = slice(A, range(n0, n), range(n0, n));
+    std::cout << "\ndone slices" << std::endl;
+
+    // std::cout << "slice A00 = " << std::endl;
+    // printaMatrix(A00);
+
+    // std::cout << "\nslice A01 = " << std::endl;
+    // printaMatrix(A01);
+
+    // std::cout << "\nslice A11 = " << std::endl;
+    // printaMatrix(A11);
+
+    potrf(uplo, A00);
+    std::cout << "\nrecursion done" << std::endl;
+
+    trsm_b(A00, A01, kd);
+    std::cout << "trsm done" << std::endl;
+
+    // std::cout << "\nA01 = " << std::endl;
+    // printaMatrix(A01);
+
+    herk_b(A01, A11, kd);
+
+    potrf(uplo, A11);
+
+    // std::cout << "\nA11 = " << std::endl;
+    // printaMatrix(A11);
+}
 }  // namespace tlapack
    // namespace tlapack
 

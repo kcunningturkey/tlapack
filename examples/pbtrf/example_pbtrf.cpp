@@ -133,8 +133,8 @@ void run(size_t m, size_t n)
     // std::cout << std::endl << "AB before = ";
     // printMatrix(AB);  
 
-    // std::cout << std::endl << "A before = ";
-    // printMatrix(A);
+    std::cout << std::endl << "A before = ";
+    printMatrix(A);
 
     real_t normA = lange(tlapack::FROB_NORM, A);
     lacpy(tlapack::Uplo::General, AB, blAH);
