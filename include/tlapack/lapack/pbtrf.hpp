@@ -93,6 +93,13 @@ void pbtrf(uplo_t uplo, matrix_t& A, std::size_t kd)
     auto A11 = slice(A, range(n0, n), range(n0, n));
     std::cout << "\ndone slices" << std::endl;
 
+    if (kd >= n/2) {
+        potrf(uplo, A00);
+        trsm(Side::Left, uplo, Op::ConjTrans, Diag::NonUnit, real_t(1), A00, A01);
+        herk(uplo, Op::ConjTrans, real_t(-1), A01, real_t(1), A11);
+        potrf(uplo, A11);
+    }
+    else {
     // std::cout << "slice A00 = " << std::endl;
     // printaMatrix(A00);
 
@@ -102,7 +109,7 @@ void pbtrf(uplo_t uplo, matrix_t& A, std::size_t kd)
     // std::cout << "\nslice A11 = " << std::endl;
     // printaMatrix(A11);
 
-    potrf(uplo, A00);
+    pbtrf(uplo, A00, kd);
     std::cout << "\nrecursion done" << std::endl;
 
     trsm_b(A00, A01, kd);
@@ -113,8 +120,8 @@ void pbtrf(uplo_t uplo, matrix_t& A, std::size_t kd)
 
     herk_b(A01, A11, kd);
 
-    potrf(uplo, A11);
-
+    pbtrf(uplo, A11, kd);
+    }
     // std::cout << "\nA11 = " << std::endl;
     // printaMatrix(A11);
 }

@@ -133,8 +133,8 @@ void run(size_t m, size_t n)
     // std::cout << std::endl << "AB before = ";
     // printMatrix(AB);  
 
-    std::cout << std::endl << "A before = ";
-    printMatrix(A);
+    // std::cout << std::endl << "A before = ";
+    // printMatrix(A);
 
     real_t normA = lange(tlapack::FROB_NORM, A);
     lacpy(tlapack::Uplo::General, AB, blAH);
@@ -250,7 +250,7 @@ int main(int argc, char** argv)
     // run<std::complex<double>>(m, n);
     // printf("-----------------------\n");
     // Default arguments
-    m = 9;
+    m = 100;
     n = m;
 
     srand(3);  // Init random seed
