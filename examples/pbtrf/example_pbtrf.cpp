@@ -56,7 +56,7 @@ void run(size_t m, size_t n)
 
     // Define parameters for banded and consolidated matrices
 
-    idx_t kd = 2;
+    std::size_t kd = 2;
     tlapack::Uplo uplo = tlapack::Uplo::Upper;
 
     // Declacre matrices
@@ -75,7 +75,7 @@ void run(size_t m, size_t n)
     if (uplo == tlapack::Uplo::Upper) {
         for (idx_t j = 0; j < n; j++) {
             real_t real_diag;        // Ensure diagonals are real
-            real_diag = j * j + 10;  // Strong positive diagonal
+            real_diag = j * j + n + 10;  // Strong positive diagonal
             A(j, j) = real_diag;
 
             for (idx_t i =
@@ -130,32 +130,32 @@ void run(size_t m, size_t n)
         }
     }    
 
-    std::cout << std::endl << "AB before = ";
-    printMatrix(AB);  
+    // std::cout << std::endl << "AB before = ";
+    // printMatrix(AB);  
 
-    std::cout << std::endl << "A before = ";
-    printMatrix(A);
+    // std::cout << std::endl << "A before = ";
+    // printMatrix(A);
 
     real_t normA = lange(tlapack::FROB_NORM, A);
     lacpy(tlapack::Uplo::General, AB, blAH);
 
     lacpy(tlapack::Uplo::General, A, blAH2);
     
-    std::cout << "blAH" << std::endl;
-    printMatrix(blAH);
+    // std::cout << "blAH" << std::endl;
+    // printMatrix(blAH);
 
-    std::cout << "blAH2" << std::endl;
-    printMatrix(blAH2);
+    // std::cout << "blAH2" << std::endl;
+    // printMatrix(blAH2);
 
-    pbtrf(uplo, A);
+    pbtrf(uplo, A, kd);
 
     pbtf2(uplo, blAH);
 
-    std::cout << "\npbtrf" << std::endl;
-    printMatrix(A);
+    // std::cout << "\npbtrf" << std::endl;
+    // printMatrix(A);
 
-    std::cout << "\nlevel 0 factor" << std::endl;
-    printMatrix(blAH);
+    // std::cout << "\nlevel 0 factor" << std::endl;
+    // printMatrix(blAH);
 
     mult_uhu(A);
 
