@@ -29,17 +29,26 @@ void trsm_b(matrixA_t& A, matrixB_t& B, std::size_t kd)
     using idx_t = tlapack::size_type<matrixA_t>;
     using scalar_t = scalar_type<TA>;
 
-    const idx_t n = ncols(A);
-    const idx_t m = ncols(B);
+    const idx_t m = ncols(A);
+    const idx_t n = ncols(B);
+    std::cout << "\nA = " << std::endl;
+    printaMatrix(A);
+    std::cout << "\nB = " << std::endl;
+    printaMatrix(B);
 
-    for (idx_t j = 0; j < m; ++j) {
-        for (idx_t i = n - kd + j; i < n; ++i) {
+    for (idx_t j = 0; j < n; ++j) {
+        for (idx_t i = std::max(static_cast<int>(0), static_cast<int>(m - kd + j)); i < m; ++i) {
             scalar_t sum = B(i, j);
-            for (idx_t k = 0; k < i; ++k)
+            std::cout << "\nstart B(" << i << ", " << j << ") = " << B(i, j) << std::endl;
+            for (idx_t k = std::max(static_cast<int>(0), static_cast<int>(m - kd + j)); k < i; ++k){
                 sum -= conj(A(k, i)) * B(k, j);
+                std::cout << "\nconjA = " << conj(A(k, i)) << " B = " << B(k, j) << std::endl;
+                std::cout << "j = " << j << " i = " << i << " k = " << k << " the sum = " << sum << std::endl;
+
+            }
             sum /= conj(A(i, i));
             B(i, j) = sum;
-            // std::cout << std::endl << i << ", " << j << std::endl;
+            std::cout << "B(" << i << ", " << j << ")" << " = " << sum << std::endl;
         }
     }
 }
@@ -55,19 +64,30 @@ void herk_b(matrixA_t& A, matrixC_t& C, std::size_t kd)
     real_t beta = 1;
     real_t alpha = -1;
 
+    std::cout << "in herkb " << std::endl;
+        printaMatrix(C);
     for (idx_t j = 0; j < kd; ++j) {
-        for (idx_t i = 0; i < j; ++i) {
+        for (idx_t i = 0; i <= j; ++i) {
             TA sum(0);
-            for (idx_t l = k - kd + j; l < k; ++l){
-                sum += conj(A(l, i)) * A(l, j);
+            for (idx_t l = k - kd + j; l < k; ++l) {
+                sum += conj(A(l, i)) * A(l, j); //j going too far?????
+                // std::cout << "in loop l" << std::endl;
+                std::cout << "conj A(l,i) = " << conj(A(l, i)) << " A(l, j) = " << A(l, j) << std::endl;
+                std::cout << "j = " << j << " i = " << i << " l = " << l << " the sum = " << sum << std::endl;
             }
             C(i, j) = alpha * sum + beta * C(i, j);
+            std::cout << "C(" << i << ", " << j << ") = " << alpha * sum + beta * C(i, j) << std::endl;
         }
+        // std::cout << "out of loop i" << std::endl;
         real_type<TA> sum(0);
-        for (idx_t l = k - kd; l < k; ++l)
+        for (idx_t l = k - kd; l < k; ++l){
+            // std::cout << "in second l loop" << std::endl;
             sum +=
-                real(A(l, j)) * real(A(l, j)) + imag(A(l, j)) * imag(A(l, j));
+                real(A(l, l)) * real(A(l, l)) + imag(A(l, l)) * imag(A(l, l));
+            std::cout << "real A(" << l << ", " << l << ") = " << real(A(l, l)) << " imagA(" << l << ", " << l << ") = " << imag(A(l, l)) << std::endl;
+        }
         C(j, j) = alpha * sum + beta * real(C(j, j));
+        std::cout << "C(" << j << ", " << j << ") = " << alpha * sum + beta * real(C(j, j)) << std::endl;
     }
 }
 template <TLAPACK_UPLO uplo_t, TLAPACK_SMATRIX matrix_t>
@@ -93,34 +113,54 @@ void pbtrf(uplo_t uplo, matrix_t& A, std::size_t kd)
     auto A11 = slice(A, range(n0, n), range(n0, n));
     std::cout << "\ndone slices" << std::endl;
 
-    if (kd >= n/2) {
+    if (kd >= n / 2) {
+        std::cout << "base case" << std::endl;
+        std::cout << "slice A00 = " << std::endl;
+        printaMatrix(A00);
+        std::cout << "\nslice A01 = " << std::endl;
+        printaMatrix(A01);
+        std::cout << "\nslice A11 = " << std::endl;
+        printaMatrix(A11);
         potrf(uplo, A00);
-        trsm(Side::Left, uplo, Op::ConjTrans, Diag::NonUnit, real_t(1), A00, A01);
-        herk(uplo, Op::ConjTrans, real_t(-1), A01, real_t(1), A11);
+        // trsm(Side::Left, Uplo::Lower, Op::ConjTrans, Diag::NonUnit, real_t(1), A00,
+        // A01);
+        trsm_b(A00, A01, kd);
+        std::cout << "\ntrsm A01 = " << std::endl;
+        printaMatrix(A01);
+        std::cout << std::endl;
+    //    herk(Uplo::Upper, Op::ConjTrans, real_t(-1), A01, real_t(1), A11);
+       herk_b(A01, A11, kd);
+        std::cout << "A11 herk" << std::endl;
+        printaMatrix(A11);
+        std::cout << std::endl;
+        
         potrf(uplo, A11);
     }
     else {
-    // std::cout << "slice A00 = " << std::endl;
-    // printaMatrix(A00);
+        // std::cout << "slice A00 = " << std::endl;
+        // printaMatrix(A00);
 
-    // std::cout << "\nslice A01 = " << std::endl;
-    // printaMatrix(A01);
+        // std::cout << "\nslice A01 = " << std::endl;
+        // printaMatrix(A01);
 
-    // std::cout << "\nslice A11 = " << std::endl;
-    // printaMatrix(A11);
+        // std::cout << "\nslice A11 = " << std::endl;
+        // printaMatrix(A11);
 
-    pbtrf(uplo, A00, kd);
-    std::cout << "\nrecursion done" << std::endl;
+        pbtrf(uplo, A00, kd);
+        std::cout << "\nrecursion done" << std::endl;
 
-    trsm_b(A00, A01, kd);
-    std::cout << "trsm done" << std::endl;
+        trsm_b(A00, A01, kd);
+        std::cout << "trsm done" << std::endl;
 
-    // std::cout << "\nA01 = " << std::endl;
-    // printaMatrix(A01);
+        std::cout << "\nA01 = " << std::endl;
+        printaMatrix(A01);
 
-    herk_b(A01, A11, kd);
+        herk_b(A01, A11, kd);
 
-    pbtrf(uplo, A11, kd);
+            std::cout << "\nA11 = " << std::endl;
+        printaMatrix(A11);
+
+        pbtrf(uplo, A11, kd);
     }
     // std::cout << "\nA11 = " << std::endl;
     // printaMatrix(A11);

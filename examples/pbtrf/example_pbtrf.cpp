@@ -56,7 +56,7 @@ void run(size_t m, size_t n)
 
     // Define parameters for banded and consolidated matrices
 
-    std::size_t kd = 2;
+    std::size_t kd = 7;
     tlapack::Uplo uplo = tlapack::Uplo::Upper;
 
     // Declacre matrices
@@ -71,6 +71,16 @@ void run(size_t m, size_t n)
     std::vector<T> AB_;
     auto AB = new_matrix(AB_, kd + 1, n);
 
+    for (idx_t j = 0; j <n; ++j) {
+        for (idx_t i = 0; i < n; ++i){
+            if constexpr (tlapack::is_complex<T>) {
+                A(i, j) = T(static_cast<real_t>(0xDEADBEEF), static_cast<real_t>(0xDEADBEEF));
+            }
+            else {
+                A(i, j) = static_cast<real_t>(0xDEADBEEF);
+            }
+        }
+    }
     // Create banded upper triangular matrix A
     if (uplo == tlapack::Uplo::Upper) {
         for (idx_t j = 0; j < n; j++) {
@@ -133,8 +143,8 @@ void run(size_t m, size_t n)
     // std::cout << std::endl << "AB before = ";
     // printMatrix(AB);  
 
-    // std::cout << std::endl << "A before = ";
-    // printMatrix(A);
+    std::cout << std::endl << "A before = ";
+    printMatrix(A);
 
     real_t normA = lange(tlapack::FROB_NORM, A);
     lacpy(tlapack::Uplo::General, AB, blAH);
@@ -250,7 +260,7 @@ int main(int argc, char** argv)
     // run<std::complex<double>>(m, n);
     // printf("-----------------------\n");
     // Default arguments
-    m = 100;
+    m = 9;
     n = m;
 
     srand(3);  // Init random seed
