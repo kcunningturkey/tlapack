@@ -42,7 +42,7 @@ void printMatrix(const matrix_t& A)
 
 //------------------------------------------------------------------------------
 template <typename T>
-void run(size_t m, size_t n)
+void run(size_t m, size_t n, size_t kd)
 {
     using real_t = tlapack::real_type<T>;
     using matrix_t = tlapack::LegacyMatrix<T>;
@@ -56,7 +56,7 @@ void run(size_t m, size_t n)
 
     // Define parameters for banded and consolidated matrices
 
-    std::size_t kd = 7;
+    // std::size_t kd = 7;
     tlapack::Uplo uplo = tlapack::Uplo::Upper;
 
     // Declacre matrices
@@ -74,10 +74,10 @@ void run(size_t m, size_t n)
     for (idx_t j = 0; j <n; ++j) {
         for (idx_t i = 0; i < n; ++i){
             if constexpr (tlapack::is_complex<T>) {
-                A(i, j) = T(static_cast<real_t>(0xDEADBEEF), static_cast<real_t>(0xDEADBEEF));
+                A(i, j) = T(static_cast<real_t>(0), static_cast<real_t>(0));
             }
             else {
-                A(i, j) = static_cast<real_t>(0xDEADBEEF);
+                A(i, j) = static_cast<real_t>(0);
             }
         }
     }
@@ -154,10 +154,9 @@ void run(size_t m, size_t n)
     // std::cout << "blAH" << std::endl;
     // printMatrix(blAH);
 
-    // std::cout << "blAH2" << std::endl;
-    // printMatrix(blAH2);
 
-    pbtrf(uplo, A, kd);
+
+    pbtrf(uplo, AB, kd);
 
     pbtf2(uplo, blAH);
 
@@ -167,6 +166,13 @@ void run(size_t m, size_t n)
     // std::cout << "\nlevel 0 factor" << std::endl;
     // printMatrix(blAH);
 
+    for (idx_t j = 0; j < n; j++) {
+        for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
+             i < j + 1; i++) {
+            A(i, j) = AB(i + kd - j, j);
+        }
+    }
+
     mult_uhu(A);
 
     for (idx_t j = 0; j < n; j++) {
@@ -174,6 +180,9 @@ void run(size_t m, size_t n)
             blAH2(i, j) = blAH2(i,j) - A(i, j);
         }
     } 
+    
+    std::cout << "blAH2" << std::endl;
+    printMatrix(blAH2);
 
     real_t normB = lange(tlapack::FROB_NORM, blAH2);
 
@@ -255,13 +264,14 @@ int main(int argc, char** argv)
               << std::endl;
 
     using std::size_t;
-    int m, n;
+    int m, n, kd;
     // printf("run< complex<double> >( %d, %d )", m, n);
     // run<std::complex<double>>(m, n);
     // printf("-----------------------\n");
     // Default arguments
-    m = 9;
+    m = 20;
     n = m;
+    kd = 19;
 
     srand(3);  // Init random seed
 
@@ -269,23 +279,23 @@ int main(int argc, char** argv)
     std::cout << std::scientific << std::showpos;
 
     printf("run< float  >( %d, %d )", m, n);
-    run<float>(m, n);
+    run<float>(m, n, kd);
     printf("-----------------------\n");
 
     printf("run< double >( %d, %d )", m, n);
-    run<double>(m, n);
+    run<double>(m, n, kd);
     printf("-----------------------\n");
 
     printf("run< long double >( %d, %d )", m, n);
-    run<long double>(m, n);
+    run<long double>(m, n, kd);
     printf("-----------------------\n");
 
     printf("run< complex<float> >( %d, %d )", m, n);
-    run<std::complex<float>>(m, n);
+    run<std::complex<float>>(m, n, kd);
     printf("-----------------------\n");
 
     printf("run< complex<double> >( %d, %d )", m, n);
-    run<std::complex<double>>(m, n);
+    run<std::complex<double>>(m, n, kd);
     printf("-----------------------\n");
 
     return 0;
