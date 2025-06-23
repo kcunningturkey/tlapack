@@ -19,6 +19,7 @@
 #include <tlapack/lapack/mult_uhu.hpp>
 #include <tlapack/lapack/lacpy.hpp>
 #include <tlapack/lapack/mult_llh.hpp>
+#include <tlapack/lapack/ldam1.hpp>
 // #include "tlapack/base/utils.hpp"
 
 // C++ headers
@@ -42,11 +43,12 @@ void printMatrix(const matrix_t& A)
 
 //------------------------------------------------------------------------------
 template <typename T>
-void run(size_t m, size_t n, size_t kd)
+void run(size_t m, size_t n, size_t kd, size_t nb)
 {
     using real_t = tlapack::real_type<T>;
     using matrix_t = tlapack::LegacyMatrix<T>;
     using idx_t = tlapack::size_type<matrix_t>;
+    using range = tlapack::pair<idx_t, idx_t>;
 
     // Functors for creating new matrices
     tlapack::Create<matrix_t> new_matrix;
@@ -143,22 +145,22 @@ void run(size_t m, size_t n, size_t kd)
     // std::cout << std::endl << "AB before = ";
     // printMatrix(AB);  
 
-    std::cout << std::endl << "A before = ";
-    printMatrix(A);
+    // std::cout << std::endl << "A before = ";
+    // printMatrix(A);
 
-    real_t normA = lange(tlapack::FROB_NORM, A);
-    lacpy(tlapack::Uplo::General, AB, blAH);
+    // real_t normA = lange(tlapack::FROB_NORM, A);
+    // lacpy(tlapack::Uplo::General, AB, blAH);
 
-    lacpy(tlapack::Uplo::General, A, blAH2);
+    // lacpy(tlapack::Uplo::General, A, blAH2);
     
     // std::cout << "blAH" << std::endl;
     // printMatrix(blAH);
 
 
 
-    pbtrf(uplo, AB, kd);
+    // pbtrf(uplo, AB, kd);
 
-    pbtf2(uplo, blAH);
+    // pbtf2(uplo, blAH);
 
     // std::cout << "\npbtrf" << std::endl;
     // printMatrix(A);
@@ -166,28 +168,102 @@ void run(size_t m, size_t n, size_t kd)
     // std::cout << "\nlevel 0 factor" << std::endl;
     // printMatrix(blAH);
 
-    for (idx_t j = 0; j < n; j++) {
-        for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
-             i < j + 1; i++) {
-            A(i, j) = AB(i + kd - j, j);
+    // for (idx_t j = 0; j < n; j++) {
+    //     for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
+    //          i < j + 1; i++) {
+    //         A(i, j) = AB(i + kd - j, j);
+    //     }
+    // }
+
+    // mult_uhu(A);
+
+    // for (idx_t j = 0; j < n; j++) {
+    //     for (idx_t i = 0; i < n; i++){
+    //         blAH2(i, j) = blAH2(i,j) - A(i, j);
+    //     }
+    // } 
+    
+    // std::cout << "blAH2" << std::endl;
+    // printMatrix(blAH2);
+
+    // real_t normB = lange(tlapack::FROB_NORM, blAH2);
+
+    // std::cout << "\nThe norm is " << normB/normA << std::endl;
+
+    std::cout << "\nPrint AB before (:" << std::endl;
+    printMatrix(AB);
+
+    std::cout << "\nPrint A before (:" << std::endl;
+    printMatrix(A);
+    std::cout << std::endl;
+
+    
+    // for(idx_t i = 0; i < n; i += nb)
+    for(idx_t i = 0; i < 1; i += nb)
+    {
+        std::cout << "this is loop num = " << i << std::endl;
+        idx_t ib = std::min(static_cast<int>(nb), static_cast<int>(n - i));
+        std::cout << "size of AB00 is " << kd - ib + 1 << ", " << kd + 1 << " x " << i << ", " << i + ib << std::endl;
+
+        auto AB00 = slice(AB, range(kd - ib +1, kd + 1), range(i, i + ib));
+        std::cout << "AB00 = " << std::endl;
+        printMatrix(AB00);
+        std::cout << std::endl;
+
+        AB00.ptr = &AB00.ptr[ib - 1];
+        AB00.ldim -= 1;
+        std::cout << "starting potf2" << std::endl;
+        std::cout << "AB00 ptr = " << AB00.ptr[0] << std::endl;
+
+        potf2(tlapack::Uplo::Upper, AB00);
+        std::cout << "done potf2" << std::endl;
+
+
+
+        idx_t i2 = std::min(static_cast<int>(kd-ib), static_cast<int>(n - i - ib));
+        if (i2 > 0 ){
+
+        auto AB01 = slice(AB, range( kd -i2 - 1, kd ), range(i + ib, i + kd));
+        AB01.ldim -= 1;
+
+                std::cout << "AB01 = " << std::endl;
+        printMatrix(AB01);
+
+        trsm(tlapack::Side::Left, tlapack::Uplo::Upper, tlapack::Op::ConjTrans, 
+             tlapack::Diag::NonUnit, real_t(1), AB00, AB01);
+
+        std::cout << "AB01 = " << std::endl;
+        printMatrix(AB01);
+        std::cout << std::endl;
+
+
+        auto AB11 = slice(AB, range(kd+1-i2 , kd + 1 ), range(i + ib, i + kd));
+        AB11.ptr = &AB11.ptr[i2 - 1];
+        AB11.ldim -= 1;
+
+                std::cout << "AB11 = " << std::endl;
+        printMatrix(AB11);
+
+        herk(tlapack::Uplo::Upper, tlapack::Op::ConjTrans, 
+            real_t(-1), AB01, real_t(1), AB11);
+
+        std::cout << "AB11 = " << std::endl;
+        printMatrix(AB11);
+        std::cout << std::endl;
+
+
+
         }
+
     }
 
-    mult_uhu(A);
+    std::cout << "\nPrint AB after" << std::endl;
+    printMatrix(AB);
 
-    for (idx_t j = 0; j < n; j++) {
-        for (idx_t i = 0; i < n; i++){
-            blAH2(i, j) = blAH2(i,j) - A(i, j);
-        }
-    } 
-    
-    std::cout << "blAH2" << std::endl;
-    printMatrix(blAH2);
+    potrf(tlapack::Uplo::Upper, A);
+    std::cout << "\nPrint A after " << std::endl;
+    printMatrix(A);
 
-    real_t normB = lange(tlapack::FROB_NORM, blAH2);
-
-    std::cout << "\nThe norm is " << normB/normA << std::endl;
-    
     //----------------------------------------------------------level0---------------------------------------------
     // std::cout << std::endl << "A before = ";
     // printMatrix(A);
@@ -264,14 +340,15 @@ int main(int argc, char** argv)
               << std::endl;
 
     using std::size_t;
-    int m, n, kd;
+    int m, n, kd, nb;
     // printf("run< complex<double> >( %d, %d )", m, n);
     // run<std::complex<double>>(m, n);
     // printf("-----------------------\n");
     // Default arguments
     m = 20;
     n = m;
-    kd = 19;
+    kd = 3;
+    nb = 2;
 
     srand(3);  // Init random seed
 
@@ -279,24 +356,24 @@ int main(int argc, char** argv)
     std::cout << std::scientific << std::showpos;
 
     printf("run< float  >( %d, %d )", m, n);
-    run<float>(m, n, kd);
+    run<float>(m, n, kd, nb);
     printf("-----------------------\n");
 
-    printf("run< double >( %d, %d )", m, n);
-    run<double>(m, n, kd);
-    printf("-----------------------\n");
+    // printf("run< double >( %d, %d )", m, n);
+    // run<double>(m, n, kd);
+    // printf("-----------------------\n");
 
-    printf("run< long double >( %d, %d )", m, n);
-    run<long double>(m, n, kd);
-    printf("-----------------------\n");
+    // printf("run< long double >( %d, %d )", m, n);
+    // run<long double>(m, n, kd);
+    // printf("-----------------------\n");
 
-    printf("run< complex<float> >( %d, %d )", m, n);
-    run<std::complex<float>>(m, n, kd);
-    printf("-----------------------\n");
+    // printf("run< complex<float> >( %d, %d )", m, n);
+    // run<std::complex<float>>(m, n, kd);
+    // printf("-----------------------\n");
 
-    printf("run< complex<double> >( %d, %d )", m, n);
-    run<std::complex<double>>(m, n, kd);
-    printf("-----------------------\n");
+    // printf("run< complex<double> >( %d, %d )", m, n);
+    // run<std::complex<double>>(m, n, kd);
+    // printf("-----------------------\n");
 
     return 0;
 }

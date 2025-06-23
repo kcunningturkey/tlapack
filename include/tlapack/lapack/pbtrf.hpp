@@ -23,45 +23,78 @@ void printaMatrix(const matrix_t& A)
 }
 
 template <typename matrixA_t, typename matrixB_t>
-void trsm_b(matrixA_t& A, matrixB_t& B, std::size_t kd)
+void trsm_squeesh(matrixA_t& A, matrixB_t& B, std::size_t kd)
 {
-    // only for upper, conjtrans, left
-    using TA = tlapack::type_t<matrixA_t>;
-    using idx_t = tlapack::size_type<matrixA_t>;
-    using scalar_t = scalar_type<TA>;
+    // // only for upper, conjtrans, left
+    // using TA = tlapack::type_t<matrixA_t>;
+    // using idx_t = tlapack::size_type<matrixA_t>;
+    // using scalar_t = scalar_type<TA>;
 
-    const idx_t m = ncols(A);
-    const idx_t n = ncols(B);
-    std::cout << "\nA = " << std::endl;
-    printaMatrix(A);
-    std::cout << "\nB = " << std::endl;
-    printaMatrix(B);
-    if (n % 2 == 0) {
-        std::cout << "option even" << std::endl;
-        for (idx_t j = 0; j < n; ++j) {
-            for (idx_t i = std::max(static_cast<int>(0),
-                                    static_cast<int>(m - kd + j));
-                 i < m; ++i) {
-                scalar_t sum = B(i, j);
-                std::cout << "\nstart B(" << i << ", " << j << ") = " << B(i, j)
-                          << std::endl;
-                for (idx_t k = std::max(static_cast<int>(0),
-                                        static_cast<int>(m - kd + j));
-                     k < i; ++k) {
-                    sum -= conj(A(k, i)) * B(k, j);
-                    std::cout << "\nconjA = " << conj(A(k, i))
-                              << " B = " << B(k, j) << std::endl;
-                    std::cout << "j = " << j << " i = " << i << " k = " << k
-                              << " the sum = " << sum << std::endl;
-                }
-                sum /= conj(A(i, i));
-                B(i, j) = sum;
-                std::cout << "B(" << i << ", " << j << ")" << " = " << sum
-                          << std::endl;
-            }
-        }
-    }
+    // const idx_t m = nrows(B);
+    // const idx_t n = ncols(B);
+
+    // for (idx_t j = 0; j < n; ++j) {
+    //     for (idx_t i = 0; i < m; ++i) {
+    //         scalar_t sum = B(i, j);
+    //         for (idx_t k = 0; k < i; ++k){
+    //             idx_t l = n - 1;
+    //             sum -= conj(A(l, k)) * B(k, j);
+    //         }
+    //         --l;
+    //         B(i, j) = sum;
+    //     }
+    // }
+
+    // const idx_t m = ncols(A);
+    // const idx_t n = ncols(B);
+    // std::cout << "\nA = " << std::endl;
+    // printaMatrix(A);
+    // std::cout << "\nB = " << std::endl;
+    // printaMatrix(B);
+    // if (n % 2 == 0) {
+    //     std::cout << "option even" << std::endl;
+    //     for (idx_t j = 0; j < n; ++j) {
+    //         for (idx_t i = std::max(static_cast<int>(0),
+    //                                 static_cast<int>(m - kd + j));
+    //              i < m; ++i) {
+    //             scalar_t sum = B(i, j);
+    //             std::cout << "\nstart B(" << i << ", " << j << ") = " << B(i,
+    //             j)
+    //                       << std::endl;
+    //             for (idx_t k = std::max(static_cast<int>(0),
+    //                                     static_cast<int>(m - kd + j));
+    //                  k < i; ++k) {
+    //                 sum -= conj(A(k, i)) * B(k, j);
+    //                 std::cout << "\nconjA = " << conj(A(k, i))
+    //                           << " B = " << B(k, j) << std::endl;
+    //                 std::cout << "j = " << j << " i = " << i << " k = " << k
+    //                           << " the sum = " << sum << std::endl;
+    //             }
+    //             sum /= conj(A(i, i));
+    //             B(i, j) = sum;
+    //             std::cout << "B(" << i << ", " << j << ")" << " = " << sum
+    //                       << std::endl;
+    //         }
+    //     }
+    // }
 }
+template<typename matrix_t>
+void pbtrf_block_ldim(matrix_t& AB, std::size_t kd)
+{
+    using idx_t = tlapack::size_type<matrix_t>;
+    using range = pair<idx_t, idx_t>;
+
+    idx_t IB = kd/2;
+    
+    auto temp = &AB.ptr[0];
+    AB.ldim -= 1;
+    AB.ptr = &AB.ptr[kd];
+    potf2(Uplo::Upper, AB);
+    AB.ptr = temp;
+    AB.ldim += 1;
+}
+
+
 template <typename matrix_t>
 void pbtrf_cheat_squish(matrix_t& AB, std::size_t kd)
 {
@@ -91,7 +124,7 @@ void pbtrf_cheat_squish(matrix_t& AB, std::size_t kd)
     std::vector<T> A_;
     auto A = new_matrix(A_, k, k);
 
-    //full
+    // full
     for (idx_t j = 0; j < k; j++) {
         for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
              i < j + 1; i++) {
@@ -112,7 +145,8 @@ void pbtrf_cheat_squish(matrix_t& AB, std::size_t kd)
     std::cout << "\nA11 = " << std::endl;
     printaMatrix(A11);
 
-    trsm(Side::Left, Uplo::Upper, Op::ConjTrans, Diag::NonUnit, real_t(1), A00, A01);
+    trsm(Side::Left, Uplo::Upper, Op::ConjTrans, Diag::NonUnit, real_t(1), A00,
+         A01);
     std::cout << "\ndone trsm" << std::endl;
 
     herk(Uplo::Upper, Op::ConjTrans, real_t(-1), A01, real_t(1), A11);
@@ -124,10 +158,12 @@ void pbtrf_cheat_squish(matrix_t& AB, std::size_t kd)
     auto AB11 = new_matrix(AB11_, m, m);
 
     for (idx_t j = 0; j < m; j++) {
-        for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(m - 1));
+        for (idx_t i =
+                 std::max(0, static_cast<int>(j) - static_cast<int>(m - 1));
              i < j + 1; i++) {
-            std::cout << "AB11(" << i << " + " << m-1 << " - " << j << ", " << j << ") = A11(" << i << ", " << j << ")" << std::endl;
-            AB11(i + m-1 - j, j) = A11(i, j);
+            std::cout << "AB11(" << i << " + " << m - 1 << " - " << j << ", "
+                      << j << ") = A11(" << i << ", " << j << ")" << std::endl;
+            AB11(i + m - 1 - j, j) = A11(i, j);
         }
     }
 
@@ -135,13 +171,14 @@ void pbtrf_cheat_squish(matrix_t& AB, std::size_t kd)
     printaMatrix(AB11);
 
     pbtf2(Uplo::Upper, AB11);
-    std::cout << "\npbtf2 AB11 done" << std::endl; 
+    std::cout << "\npbtf2 AB11 done" << std::endl;
 
-    //unsquishing AB11
+    // unsquishing AB11
     for (idx_t j = 0; j < m; j++) {
-        for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(m-1));
+        for (idx_t i =
+                 std::max(0, static_cast<int>(j) - static_cast<int>(m - 1));
              i < j + 1; i++) {
-            A11(i, j) = AB11(i + m-1 - j, j);
+            A11(i, j) = AB11(i + m - 1 - j, j);
         }
     }
 
@@ -159,7 +196,8 @@ void pbtrf_cheat_squish(matrix_t& AB, std::size_t kd)
 
     // //squishing A00
     // for (idx_t j = 0; j < n; j++) {
-    //     for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
+    //     for (idx_t i = std::max(0, static_cast<int>(j) -
+    //     static_cast<int>(kd));
     //          i < j + 1; i++) {
     //         AB(i + kd - j, j) = A00(i, j);
     //     }
@@ -167,12 +205,12 @@ void pbtrf_cheat_squish(matrix_t& AB, std::size_t kd)
     // // std::cout << "\nAB = " << std::endl;
     // // printaMatrix(AB);
 
-
     // pbtf2(Uplo::Upper, AB);
 
     // //full
     // for (idx_t j = 0; j < n; j++) {
-    //     for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
+    //     for (idx_t i = std::max(0, static_cast<int>(j) -
+    //     static_cast<int>(kd));
     //          i < j + 1; i++) {
     //         A00(i, j) = AB(i + kd - j, j);
     //     }
@@ -181,12 +219,14 @@ void pbtrf_cheat_squish(matrix_t& AB, std::size_t kd)
     // // std::cout << "C00 = " << std::endl;
     // // printaMatrix(A00);
 
-    // trsm(Side::Left, Uplo::Upper, Op::ConjTrans, Diag::NonUnit, real_t(1), A00, A01);
+    // trsm(Side::Left, Uplo::Upper, Op::ConjTrans, Diag::NonUnit, real_t(1),
+    // A00, A01);
 
     // herk(Uplo::Upper, Op::ConjTrans, real_t(-1), A01, real_t(1), A11);
 
     // for (idx_t j = 0; j < k; j++) {
-    //     for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
+    //     for (idx_t i = std::max(0, static_cast<int>(j) -
+    //     static_cast<int>(kd));
     //          i < j + 1; i++) {
     //         AB11(i + kd - j, j) = A11(i, j);
     //     }
@@ -195,7 +235,8 @@ void pbtrf_cheat_squish(matrix_t& AB, std::size_t kd)
     // pbtf2(Uplo::Upper, AB11);
 
     // for (idx_t j = 0; j < k; j++) {
-    //     for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
+    //     for (idx_t i = std::max(0, static_cast<int>(j) -
+    //     static_cast<int>(kd));
     //          i < j + 1; i++) {
     //         A11(i, j) = AB11(i + kd - j, j);
     //     }
@@ -230,7 +271,7 @@ void pbtrf_cheat_full(matrix_t& A, std::size_t kd)
     std::vector<T> AB11_;
     auto AB11 = new_matrix(AB11_, kd + 1, k);
 
-    //squishing A00
+    // squishing A00
     for (idx_t j = 0; j < n; j++) {
         for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
              i < j + 1; i++) {
@@ -240,10 +281,9 @@ void pbtrf_cheat_full(matrix_t& A, std::size_t kd)
     // std::cout << "\nAB = " << std::endl;
     // printaMatrix(AB);
 
-
     pbtf2(Uplo::Upper, AB);
 
-    //full
+    // full
     for (idx_t j = 0; j < n; j++) {
         for (idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
              i < j + 1; i++) {
@@ -254,7 +294,8 @@ void pbtrf_cheat_full(matrix_t& A, std::size_t kd)
     // std::cout << "C00 = " << std::endl;
     // printaMatrix(A00);
 
-    trsm(Side::Left, Uplo::Upper, Op::ConjTrans, Diag::NonUnit, real_t(1), A00, A01);
+    trsm(Side::Left, Uplo::Upper, Op::ConjTrans, Diag::NonUnit, real_t(1), A00,
+         A01);
 
     herk(Uplo::Upper, Op::ConjTrans, real_t(-1), A01, real_t(1), A11);
 
@@ -300,12 +341,16 @@ void herk_b(matrixA_t& A, matrixC_t& C, std::size_t kd)
                       << std::endl;
             TA sum(0);
             std::cout << "in loop i" << std::endl;
-            for (idx_t l = i; //j - kd + n - 1, std::max(static_cast<int>(0),static_cast<int>(k - kd - 1 + j))
-                                    
+            for (idx_t l = i;  // j - kd + n - 1,
+                               // std::max(static_cast<int>(0),static_cast<int>(k
+                               // - kd - 1 + j))
+
                  l < k;
                  ++l) {  // std::min(static_cast<int>(kd), static_cast<int>(k))
-                std::cout << "in loop l:k - kd -1 + j = " << k << " - " << kd << " - 1 " << " + " << j << std::endl;
-                std::cout << "conjA(" << i << ", " << l << ") and A(" << l << ", " << j << ")" << std::endl;
+                std::cout << "in loop l:k - kd -1 + j = " << k << " - " << kd
+                          << " - 1 " << " + " << j << std::endl;
+                std::cout << "conjA(" << i << ", " << l << ") and A(" << l
+                          << ", " << j << ")" << std::endl;
 
                 sum += conj(A(l, i)) * A(l, j);  // j going too far?????
                 std::cout << "j = " << j << " i = " << i << " l = " << l
@@ -349,7 +394,7 @@ void pbtrf(uplo_t uplo, matrix_t& A, std::size_t kd)
 
     pbtrf_cheat_squish(A, kd);
 
-   // pbtrf_cheat_full(A, kd);
+    // pbtrf_cheat_full(A, kd);
 
     // const idx_t n = ncols(A);
     // const idx_t n0 = n / 2;
