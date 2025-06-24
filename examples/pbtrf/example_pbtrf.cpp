@@ -218,17 +218,36 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     // std::cout << "\nPrint A before (:" << std::endl;
     // printMatrix(A);
     // std::cout << std::endl;
-    for(idx_t i = 0; i < n; i += nb)
-    {
-        idx_t ib = std::min(static_cast<int>(nb), static_cast<int>(n - i));
-        std::cout << "ib = " << ib << std::endl;
-    }
+    // for(idx_t i = 0; i < n; i += nb)
+    // {
+    //     //idx_t ib = std::min(static_cast<int>(nb), static_cast<int>(n - i));
+    //     if (n < i) 
+    //     {
+    //         idx_t ib = 0;
+    //     }
+    //     else if (nb+i < n)
+    //     {
+    //         idx_t ib = nb;
+    //     }
+
+    //     std::cout << "ib = " << ib << std::endl;
+    // }
     
     for(idx_t i = 0; i < n; i += nb)
     // for(idx_t i = 0; i < 1; i += nb)
     {
         std::cout << "this is loop num = " << i << std::endl;
-        idx_t ib = std::min(static_cast<int>(nb), static_cast<int>(n - i));
+        // idx_t ib = std::min(static_cast<int>(nb), static_cast<int>(n - i));
+        idx_t ib;
+        if (n < nb + i) 
+        {
+          ib = n - i;
+        }
+        else //(nb + i < n)
+        {
+           ib = nb;
+        }
+
         std::cout << "\n\n\n\nib = " << ib << std::endl;
         std::cout << "size of AB00 is " << kd - ib + 1 << ", " << kd + 1 << " x " << i << ", " << i + ib << std::endl;
 
@@ -247,7 +266,14 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
 
 
 
-        idx_t i2 = std::min(static_cast<int>(kd-ib), static_cast<int>(n - i - ib));
+        // idx_t i2 = std::min(static_cast<int>(kd-ib), static_cast<int>(n - i - ib));
+        idx_t i2;
+        if (kd + i < n) {
+            i2 = kd - ib;
+        }
+        else {
+            i2 = n - i - ib;
+        }
         std::cout << "i2 = " << i2 << std::endl;
         if (i2 > 0 ){
 
@@ -293,7 +319,17 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
 
         }
 
-        int i3 = std::min(static_cast<int>(ib), static_cast<int>(n- i - kd)); // change to int i hate unsigned ints omg
+       // int i3 = std::min(static_cast<int>(ib), static_cast<int>(n- i - kd)); // change to int i hate unsigned ints omg
+       idx_t i3;
+       if (ib + i + kd < n) {
+            i3 = ib;
+       }
+       else if (n > kd + i) {
+            i3 = n - i - kd;
+       }
+       else {
+            i3 = 0;
+       }
         std::cout << "ib = " << ib << std::endl;
         std::cout << "n - i - kd = " << n << " - " << i << " - " << kd << " = " << static_cast<int>(n) - static_cast<int>(i) - static_cast<int>(kd) << std::endl;
         std::cout << "i3 = " << i3 << std::endl;
@@ -460,7 +496,10 @@ int main(int argc, char** argv)
               << std::endl;
 
     using std::size_t;
-    int m, n, kd, nb;
+
+    using idx_t = size_t;
+
+    idx_t m, n, kd, nb;
     // printf("run< complex<double> >( %d, %d )", m, n);
     // run<std::complex<double>>(m, n);
     // printf("-----------------------\n");
@@ -475,23 +514,23 @@ int main(int argc, char** argv)
     std::cout.precision(5);
     std::cout << std::scientific << std::showpos;
 
-    printf("run< float  >( %d, %d )", m, n);
+    printf("run< float  >( %d, %d )", static_cast<int>(m), static_cast<int>(n));
     run<float>(m, n, kd, nb);
     printf("-----------------------\n");
 
-    // printf("run< double >( %d, %d )", m, n);
+    // printf("run< double >( %d, %d )", static_cast<int>(m), static_cast<int>(n));
     // run<double>(m, n, kd);
     // printf("-----------------------\n");
 
-    // printf("run< long double >( %d, %d )", m, n);
+    // printf("run< long double >( %d, %d )", static_cast<int>(m), static_cast<int>(n));
     // run<long double>(m, n, kd);
     // printf("-----------------------\n");
 
-    // printf("run< complex<float> >( %d, %d )", m, n);
+    // printf("run< complex<float> >( %d, %d )", static_cast<int>(m), static_cast<int>(n));
     // run<std::complex<float>>(m, n, kd);
     // printf("-----------------------\n");
 
-    // printf("run< complex<double> >( %d, %d )", m, n);
+    // printf("run< complex<double> >( %d, %d )", static_cast<int>(m), static_cast<int>(n));
     // run<std::complex<double>>(m, n, kd);
     // printf("-----------------------\n");
 
