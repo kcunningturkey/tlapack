@@ -20,6 +20,9 @@
 #include <tlapack/lapack/lacpy.hpp>
 #include <tlapack/lapack/mult_llh.hpp>
 #include <tlapack/lapack/ldam1.hpp>
+#include <tlapack/blas/trmm.hpp>
+#include <tlapack/blas/gemm.hpp>
+
 // #include "tlapack/base/utils.hpp"
 
 // C++ headers
@@ -76,10 +79,21 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     for (idx_t j = 0; j <n; ++j) {
         for (idx_t i = 0; i < n; ++i){
             if constexpr (tlapack::is_complex<T>) {
-                A(i, j) = T(static_cast<real_t>(0), static_cast<real_t>(0));
+                A(i, j) = T(static_cast<real_t>(0xDEADBEEF), static_cast<real_t>(0xDEADBEEF));
             }
             else {
-                A(i, j) = static_cast<real_t>(0);
+                A(i, j) = static_cast<real_t>(0xDEADBEEF);
+            }
+        }
+    }
+
+    for (idx_t j = 0; j < kd + 1; ++j) {
+        for ( idx_t i = 0; i < n; ++i) {
+            if constexpr (tlapack::is_complex<T>) {
+                AB(j, i) = T(static_cast<real_t>(0xDEADBEEF), static_cast<real_t>(0xDEADBEEF));
+            }
+            else {
+                AB(j, i) = static_cast<real_t>(0xDEADBEEF);
             }
         }
     }
@@ -142,11 +156,19 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
         }
     }    
 
+        for (idx_t j = kd; j < n; j++) {
+        for (idx_t i = 0; i < j-kd; i++) {
+            A(i, j) = static_cast<float>(0);
+        }
+    }
+
+
     // std::cout << std::endl << "AB before = ";
     // printMatrix(AB);  
 
-    // std::cout << std::endl << "A before = ";
-    // printMatrix(A);
+     potf2(tlapack::Uplo::Upper, A);
+    std::cout << std::endl << "potrf A before = ";
+    printMatrix(A);
 
     // real_t normA = lange(tlapack::FROB_NORM, A);
     // lacpy(tlapack::Uplo::General, AB, blAH);
@@ -193,16 +215,21 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     std::cout << "\nPrint AB before (:" << std::endl;
     printMatrix(AB);
 
-    std::cout << "\nPrint A before (:" << std::endl;
-    printMatrix(A);
-    std::cout << std::endl;
-
+    // std::cout << "\nPrint A before (:" << std::endl;
+    // printMatrix(A);
+    // std::cout << std::endl;
+    for(idx_t i = 0; i < n; i += nb)
+    {
+        idx_t ib = std::min(static_cast<int>(nb), static_cast<int>(n - i));
+        std::cout << "ib = " << ib << std::endl;
+    }
     
-    // for(idx_t i = 0; i < n; i += nb)
-    for(idx_t i = 0; i < 1; i += nb)
+    for(idx_t i = 0; i < n; i += nb)
+    // for(idx_t i = 0; i < 1; i += nb)
     {
         std::cout << "this is loop num = " << i << std::endl;
         idx_t ib = std::min(static_cast<int>(nb), static_cast<int>(n - i));
+        std::cout << "\n\n\n\nib = " << ib << std::endl;
         std::cout << "size of AB00 is " << kd - ib + 1 << ", " << kd + 1 << " x " << i << ", " << i + ib << std::endl;
 
         auto AB00 = slice(AB, range(kd - ib +1, kd + 1), range(i, i + ib));
@@ -221,21 +248,34 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
 
 
         idx_t i2 = std::min(static_cast<int>(kd-ib), static_cast<int>(n - i - ib));
+        std::cout << "i2 = " << i2 << std::endl;
         if (i2 > 0 ){
 
-        auto AB01 = slice(AB, range( kd -i2 - 1, kd ), range(i + ib, i + kd));
+        // auto AB01 = slice(AB, range( kd -i2 -1 , kd ), range(i + ib, i + kd));
+        auto AB01 = slice(AB, range( kd -ib , kd ), range(i + ib, i + kd));
         AB01.ldim -= 1;
 
-                std::cout << "AB01 = " << std::endl;
+        std::cout << "AB01 = " << std::endl;
         printMatrix(AB01);
 
         trsm(tlapack::Side::Left, tlapack::Uplo::Upper, tlapack::Op::ConjTrans, 
              tlapack::Diag::NonUnit, real_t(1), AB00, AB01);
 
-        std::cout << "AB01 = " << std::endl;
+        std::cout << "\nAB01 after = " << std::endl;
         printMatrix(AB01);
         std::cout << std::endl;
 
+        // //CHECKING TRSM
+        // trmm(tlapack::Side::Left, tlapack::Uplo::Upper, tlapack::Op::ConjTrans, 
+        //      tlapack::Diag::NonUnit, real_t(1), AB00, AB01);
+
+        // std::cout << "AB01 restored = " << std::endl;
+        // printMatrix(AB01);
+        // std::cout << std::endl;
+
+        // std::cout << "AB restored = " << std::endl;
+        // printMatrix(AB);
+        // std::cout << std::endl;
 
         auto AB11 = slice(AB, range(kd+1-i2 , kd + 1 ), range(i + ib, i + kd));
         AB11.ptr = &AB11.ptr[i2 - 1];
@@ -249,18 +289,98 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
 
         std::cout << "AB11 = " << std::endl;
         printMatrix(AB11);
-        std::cout << std::endl;
+        std::cout << std::endl;  
 
+        }
 
+        int i3 = std::min(static_cast<int>(ib), static_cast<int>(n- i - kd)); // change to int i hate unsigned ints omg
+        std::cout << "ib = " << ib << std::endl;
+        std::cout << "n - i - kd = " << n << " - " << i << " - " << kd << " = " << static_cast<int>(n) - static_cast<int>(i) - static_cast<int>(kd) << std::endl;
+        std::cout << "i3 = " << i3 << std::endl;
+        std::cout << "test = " << 0 - 5 << std::endl;
+        if (i3 > 0) {
+
+            auto AB02 = slice(AB, range(0, kd - i2), range(i + kd, i + kd + i3));
+            AB02.ldim -= 1;
+
+            std::vector<T> work_;
+            auto work = new_matrix(work_, kd - i2, i3);
+
+            for (idx_t i = 0; i < kd - i2; ++i) {
+                for (idx_t j = 0; j < i3; ++j) {
+                    work(i, j) = 0;
+                }
+            }
+
+            for(idx_t jj = 0; jj < i3; jj++){
+                for(idx_t ii = jj; ii < ib; ++ii){
+                    work(ii, jj) = AB(ii-jj, jj+i+kd);
+                }
+            }
+
+            std::cout << "AB02 before = " << std::endl;
+            printMatrix(AB02);
+            std::cout << std::endl;
+
+            std::cout << "work before = " << std::endl;
+            printMatrix(work);
+            std::cout << std::endl;
+
+            trsm(tlapack::Side::Left, tlapack::Uplo::Upper, tlapack::Op::ConjTrans, tlapack::Diag::NonUnit, real_t(1), AB00, work);
+
+            std::cout << "work after = " << std::endl;
+            printMatrix(work);
+            std::cout << std::endl;
+
+            auto AB12 = slice(AB, range(kd-i2 , kd ), range(i + kd, i + kd + i3));
+            AB12.ldim -= 1;
+
+            std::cout << "AB12 = " << std::endl;
+            printMatrix(AB12);
+            std::cout << std::endl;
+
+            auto AB01 = slice(AB, range( kd -ib , kd ), range(i + ib, i + kd));
+            AB01.ldim -= 1;
+
+            gemm(tlapack::Op::ConjTrans, tlapack::Op::NoTrans, real_t(-1), AB01, work, real_t(1), AB12);
+
+            std::cout << "AB12 after = " << std::endl;
+            printMatrix(AB12);
+            std::cout << std::endl;
+
+            std::cout << "about to slice ab22" << std::endl;
+            std::cout << "slicing rows = " << kd - i3 + 1 << " - " << kd + 1 << " slicing columns = " << i + ib + i2 << " - " << std::min(static_cast<int>(i + 2 *ib + i2), static_cast<int>(n)) << std::endl;
+            auto AB22 = slice(AB, range(kd- i3 + 1 , kd + 1 ), range(i + ib + i2, std::min(static_cast<int>(i + 2 *ib + i2), static_cast<int>(n))));
+            std::cout << "done slice" << std::endl;
+            AB22.ptr = &AB22.ptr[i3 - 1];
+            AB22.ldim -= 1;
+
+            std::cout << "AB22 = " << std::endl;
+            printMatrix(AB22);
+            std::cout << std::endl;
+
+            herk(tlapack::Uplo::Upper, tlapack::Op::ConjTrans, real_t(-1), work, real_t(1), AB22);
+
+            for (idx_t jj = 0; jj < i3; ++jj) {
+                for (idx_t ii = jj; ii < ib; ++ii) {
+                    AB(ii-jj, jj+i+kd) = work(ii, jj);
+                }
+            }
+
+            std::cout << "AB with work = " << std::endl;
+            printMatrix(AB);
+            std::cout << std::endl;
 
         }
 
     }
 
+
+
+
     std::cout << "\nPrint AB after" << std::endl;
     printMatrix(AB);
 
-    potrf(tlapack::Uplo::Upper, A);
     std::cout << "\nPrint A after " << std::endl;
     printMatrix(A);
 
@@ -345,10 +465,10 @@ int main(int argc, char** argv)
     // run<std::complex<double>>(m, n);
     // printf("-----------------------\n");
     // Default arguments
-    m = 20;
+    m = 13;
     n = m;
-    kd = 3;
-    nb = 2;
+    kd = 7;
+    nb = 5;
 
     srand(3);  // Init random seed
 
