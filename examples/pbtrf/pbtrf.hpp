@@ -44,7 +44,6 @@ void pbtrf(uplo_t uplo,
     idx_t n = ncols(AB);
     idx_t kd = nrows(AB) - 1;
     const idx_t nb = opts.nb;
-    std::cout << "nb = " << nb << std::endl;
 
     if (nb < 1 || nb > kd) {
         pbtf0(uplo, AB);
@@ -91,32 +90,30 @@ void pbtrf(uplo_t uplo,
                     else {
                         i2 = n - i - ib;
                     }
-                    if (i2 > 0) {
-                        auto AB01 = slice(AB, range(kd - ib, kd),
-                                          range(i + ib, i + kd));
-                        AB01.ldim -= 1;
 
-                        printaMatrix(AB01);
+                    if (i2 > 0) {
+
+                        auto AB01 = slice(
+                            AB, range(kd - ib, kd),
+                            range(i + ib, std::min(static_cast<int>(i + kd),
+                                                   static_cast<int>(n))));
+                        AB01.ldim -= 1;
 
                         trsm(tlapack::Side::Left, tlapack::Uplo::Upper,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), AB00, AB01);
 
-                        printaMatrix(AB01);
-                        std::cout << std::endl;
+                        auto AB11 = slice(
+                            AB, range(kd + 1 - i2, kd + 1),
+                            range(i + ib, std::min(static_cast<int>(i + kd),
+                                                   static_cast<int>(n))));
 
-                        auto AB11 = slice(AB, range(kd + 1 - i2, kd + 1),
-                                          range(i + ib, i + kd));
                         AB11.ptr = &AB11.ptr[i2 - 1];
                         AB11.ldim -= 1;
-
-                        printaMatrix(AB11);
 
                         herk(tlapack::Uplo::Upper, tlapack::Op::ConjTrans,
                              real_t(-1), AB01, real_t(1), AB11);
 
-                        printaMatrix(AB11);
-                        std::cout << std::endl;
                     }
 
                     // int i3 = std::min(static_cast<int>(ib),
@@ -132,11 +129,8 @@ void pbtrf(uplo_t uplo,
                     else {
                         i3 = 0;
                     }
-                    if (i3 > 0) {
-                        auto AB02 = slice(AB, range(0, kd - i2),
-                                          range(i + kd, i + kd + i3));
-                        AB02.ldim -= 1;
 
+                    if (i3 > 0) {
                         auto work02 = slice(work, range(0, ib), range(0, i3));
 
                         for (idx_t jj = 0; jj < i3; jj++) {
@@ -149,12 +143,17 @@ void pbtrf(uplo_t uplo,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), AB00, work02);
 
-                        auto AB12 = slice(AB, range(kd - i2, kd),
-                                          range(i + kd, i + kd + i3));
+                        auto AB12 =
+                            slice(AB, range(kd - i2, kd),
+                                  range(i + kd,
+                                        std::min(static_cast<int>(i + kd + i3),
+                                                 static_cast<int>(n))));
                         AB12.ldim -= 1;
 
-                        auto AB01 = slice(AB, range(kd - ib, kd),
-                                          range(i + ib, i + kd));
+                        auto AB01 = slice(
+                            AB, range(kd - ib, kd),
+                            range(i + ib, std::min(static_cast<int>(i + kd),
+                                                   static_cast<int>(n))));
                         AB01.ldim -= 1;
 
                         gemm(tlapack::Op::ConjTrans, tlapack::Op::NoTrans,
@@ -179,6 +178,7 @@ void pbtrf(uplo_t uplo,
                     }
                 }
             }
+
         }
         else {
             for (idx_t i = 0; i < n; i += nb)
@@ -194,8 +194,6 @@ void pbtrf(uplo_t uplo,
 
                 auto AB00 = slice(AB, range(0, ib), range(i, ib + i));
                 AB00.ldim -= 1;
-                printaMatrix(AB00);
-                std::cout << std::endl;
 
                 potf2(tlapack::Uplo::Lower, AB00);
 
