@@ -39,18 +39,9 @@ int pbtf0(uplo_t uplo, matrix_t& AB)
                 tlapack_error(
                     i + 1,
                     "The leading minor of order j+1 is not positive definite,"
-                    " and the factorization could not be completed.):");
+                    " and the factorization could not be completed.");
                 return i + 1;
             }
-            
-           AB(kd, i) = tlapack::sqrt(aii);
-
-        //     T& aii = AB(kd, i);
-        //     if (real(aii) <= real_t(0)) {
-        //         return 0;
-        //     }
-
-        //    AB(kd, i) = tlapack::sqrt(aii);
 
             // Division loop
             idx_t k = i + kd;
@@ -86,12 +77,30 @@ int pbtf0(uplo_t uplo, matrix_t& AB)
     }
     else {
         for (idx_t i = 0; i < n; ++i) {
-            T& aii = AB(0, i);
-            if (real(aii) <= real_t(0)) {
-                return 0;
+            real_t aii = real(AB(0,i));
+
+            if (aii > zero)
+                if constexpr (is_complex<T>) {
+                AB(0, i) = T(sqrt(aii), zero);
+                }
+                else {
+                    AB(0, i) = T(sqrt(aii));
+                }
+            else
+            {
+                tlapack_error(
+                    i + 1,
+                    "The leading minor of order j+1 is not positive definite,"
+                    " and the factorization could not be completed.");
+                return i + 1;
             }
 
-           AB(0, i) = tlapack::sqrt(aii);
+        //     T& aii = AB(0, i);
+        //     if (real(aii) <= real_t(0)) {
+        //         return 0;
+        //     }
+
+        //    AB(0, i) = tlapack::sqrt(aii);
 
             // Normalize subdiagonal entries in column i
             for (idx_t j = 1; j < std::min(kd + 1, n - i); ++j) {

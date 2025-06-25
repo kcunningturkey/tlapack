@@ -1,27 +1,26 @@
-#ifndef TLAPACK_PBTRF_HH
-#define TLAPACK_PBTRF_HH
+/// @file potrf.hpp Computes the Cholesky factorization of a Hermitian positive
+/// definite band matrix AB.
+/// @author Ella Addison-Taylor, Kyle Cunningham, Henricus Bouwmeester, University of Colorado Denver, USA
+//
+// Copyright (c) 2025, University of Colorado Denver. All rights reserved.
+//
+// This file is part of <T>LAPACK.
+// <T>LAPACK is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+
+#ifndef TLAPACK_PBTRF_LEGACYMATRIX_HH
+#define TLAPACK_PBTRF_LEGACYMATRIX_HH
 
 #include "tlapack/base/utils.hpp"
 #include "tlapack/blas/herk.hpp"
 #include "tlapack/blas/trsm.hpp"
 #include "tlapack/lapack/pbtf0.hpp"
+#include "tlapack/blas/gemm.hpp"
+#include "tlapack/lapack/potf2.hpp"
+
 
 namespace tlapack {
-/// Print matrix A in the standard output
-template <typename matrix_t>
-void printaMatrix(const matrix_t& A)
-{
-    using idx_t = tlapack::size_type<matrix_t>;
-    const idx_t m = tlapack::nrows(A);
-    const idx_t n = tlapack::ncols(A);
-
-    for (idx_t i = 0; i < m; ++i) {
-        std::cout << std::endl;
-        for (idx_t j = 0; j < n; ++j)
-            std::cout << A(i, j) << " ";
-    }
-}
-
+/// @brief Options struct for pbtrf()
 struct BlockedBandedCholeskyOpts : public EcOpts {
     constexpr BlockedBandedCholeskyOpts(const EcOpts& opts = {})
         : EcOpts(opts) {};
@@ -29,8 +28,63 @@ struct BlockedBandedCholeskyOpts : public EcOpts {
     size_t nb = 32;  ///< Block size
 };
 
+/** Computes the Cholesky factorization of a Hermitian
+ * positive definite band matrix A.
+ *
+ * The factorization has the form
+ *      $A = U^H U,$ if uplo = Upper, or
+ *      $A = L L^H,$ if uplo = Lower,
+ * where U is an upper triangular matrix and L is lower triangular.
+ *
+ * @param[in] uplo
+ *      - Uplo::Upper: Upper triangle of A is referenced;
+ *      - Uplo::Lower: Lower triangle of A is referenced.
+ *
+ * @param[in,out] AB
+ *       AB is an array, dimension (kd+1, N)
+ *      On entry, the Hermitian positive definite band matrix AB of size kd+1-by-n.
+ *
+ *      - If uplo = Uplo::Upper, AB(i + kd - j, j) = A(i, j) for max(0,j-kd)<=i<=j
+ *
+ *      - If uplo = Uplo::Lower, AB(i - j, j) = A(i, j) for j<=i<=min(n,j+kd+1)
+ *
+ *      - On successful exit, the factor U or L from the Cholesky
+ *      factorization $A = U^H U$ or $A = L L^H.$
+ *
+ * @param[in] opts Options.
+ *      Define the behavior of nb for pbtrf_legacymatrix.     
+ *
+ * @return 0: successful exit.
+ * 
+ * @return i, 0 < i <= n, if the leading minor of order i is not
+ *      positive definite, and the factorization could not be completed.
+ * 
+ * @par Further Details
+ * 
+ * The band storage scheme is illustrated by the following example, when
+ * N = 6, KD = 2, and UPLO = 'U':
+ *
+ *    On entry:                        On exit:
+ *
+ *     *    *   a13  a24  a35  a46      *    *   u13  u24  u35  u46
+ *     *   a12  a23  a34  a45  a56      *   u12  u23  u34  u45  u56
+ *    a11  a22  a33  a44  a55  a66     u11  u22  u33  u44  u55  u66
+ *
+ * Similarly, if UPLO = 'L' the format of A is as follows:
+ *
+ *    On entry:                        On exit:
+ *
+ *    a11  a22  a33  a44  a55  a66     l11  l22  l33  l44  l55  l66
+ *    a21  a32  a43  a54  a65   *      l21  l32  l43  l54  l65   *
+ *    a31  a42  a53  a64   *    *      l31  l42  l53  l64   *    *
+ *
+ * Array elements marked * are not used by the routine.
+ *
+ * @ingroup variant_interface
+ */
+
 template <TLAPACK_UPLO uplo_t, TLAPACK_SMATRIX matrix_t>
-void pbtrf(uplo_t uplo,
+int pbtrf_legacymatrix(uplo_t uplo,
            matrix_t& AB,
            const BlockedBandedCholeskyOpts& opts = {})
 {
@@ -46,7 +100,7 @@ void pbtrf(uplo_t uplo,
     const idx_t nb = opts.nb;
 
     if (nb < 1 || nb > kd) {
-        pbtf0(uplo, AB);
+        return pbtf0(uplo, AB);
     }
     else {
         std::vector<T> work_(nb * nb);
@@ -61,13 +115,12 @@ void pbtrf(uplo_t uplo,
 
         if (uplo == tlapack::Uplo::Upper) {
             for (idx_t i = 0; i < n; i += nb) {
-                // idx_t ib = std::min(static_cast<int>(nb), static_cast<int>(n
-                // - i));
+                // ib = min(nb, n - i)
                 idx_t ib;
                 if (n < nb + i) {
                     ib = n - i;
                 }
-                else  //(nb + i < n)
+                else  
                 {
                     ib = nb;
                 }
@@ -81,8 +134,7 @@ void pbtrf(uplo_t uplo,
                 potf2(tlapack::Uplo::Upper, AB00);
 
                 if (i + ib < n) {
-                    // idx_t i2 = std::min(static_cast<int>(kd-ib),
-                    // static_cast<int>(n - i - ib));
+                    // i2 = min(kd-ib, n-i-ib)
                     idx_t i2;
                     if (kd + i < n) {
                         i2 = kd - ib;
@@ -115,10 +167,7 @@ void pbtrf(uplo_t uplo,
                              real_t(-1), AB01, real_t(1), AB11);
 
                     }
-
-                    // int i3 = std::min(static_cast<int>(ib),
-                    // static_cast<int>(n- i
-                    // - kd)); // change to int i hate unsigned ints omg
+                    // i3 = min(ib, n-i-kd)
                     idx_t i3;
                     if (ib + i + kd < n) {
                         i3 = ib;
@@ -180,9 +229,8 @@ void pbtrf(uplo_t uplo,
             }
 
         }
-        else {
+        else { // uplo == Lower
             for (idx_t i = 0; i < n; i += nb)
-            // for (idx_t i = 0; i <= 0; i++)
             {
                 idx_t ib;
                 if (nb + i < n) {
@@ -287,8 +335,8 @@ void pbtrf(uplo_t uplo,
             }
         }
     }
+    return 0;
 }
 }  // namespace tlapack
-   // namespace tlapack
 
-#endif
+#endif // TLAPACK_PBTRF_LEGACYMATRIX_HH
