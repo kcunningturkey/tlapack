@@ -1,5 +1,5 @@
-#ifndef TLAPACK_PBTF2_HH
-#define TLAPACK_PBTF2_HH
+#ifndef TLAPACK_PBTF0_HH
+#define TLAPACK_PBTF0_HH
 
 #include "tlapack/base/utils.hpp"
 
@@ -20,7 +20,7 @@ void print2Matrix(const matrix_t& A)
 }
 
 template <TLAPACK_UPLO uplo_t, TLAPACK_SMATRIX matrix_t>
-void pbtf2(uplo_t uplo, matrix_t& AB)
+void pbtf0(uplo_t uplo, matrix_t& AB)
 {
     using T = tlapack::type_t<matrix_t>;
     using idx_t = tlapack::size_type<matrix_t>;
@@ -113,4 +113,4 @@ void pbtf2(uplo_t uplo, matrix_t& AB)
 }  // namespace tlapack
    // namespace tlapack
 
-#endif
+#endif  // TLAPACK_PBTF0_HH
