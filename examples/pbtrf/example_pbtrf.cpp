@@ -18,7 +18,7 @@
 #include <tlapack/lapack/pbtf0.hpp>
 
 // local file
-#include "pbtrf.hpp"
+#include "pbtrf_legacymatrix.hpp"
 
 // C++ headers
 #include <algorithm>
@@ -40,6 +40,7 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
 
     // Define parameters for banded and consolidated matrices
 
+    // tlapack::Uplo uplo = tlapack::Uplo::Lower;
     tlapack::Uplo uplo = tlapack::Uplo::Upper;
 
     // Declacre matrices
@@ -155,7 +156,8 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     tlapack::BlockedBandedCholeskyOpts opts;
     opts.nb = nb;
 
-    pbtrf(uplo, AB, opts);
+    pbtrf_legacymatrix(uplo, AB, opts);
+    //pbtf0(uplo, AB);
 
     if (uplo == tlapack::Uplo::Upper) {
         for (idx_t j = 0; j < n; j++) {
@@ -202,10 +204,10 @@ int main(int argc, char** argv)
 
     idx_t m, n, kd, nb;
 
-    m = 130;
+    m = 100;
     n = m;
-    kd = 31;
-    nb = 20;
+    kd = 20;
+    nb = 25;
 
     srand(3);  // Init random seed
 

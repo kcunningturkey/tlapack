@@ -66,17 +66,17 @@ struct BlockedBandedCholeskyOpts : public EcOpts {
  *
  *    On entry:                        On exit:
  *
- *     *    *   a13  a24  a35  a46      *    *   u13  u24  u35  u46
- *     *   a12  a23  a34  a45  a56      *   u12  u23  u34  u45  u56
- *    a11  a22  a33  a44  a55  a66     u11  u22  u33  u44  u55  u66
+ *     *    *   a02  a13  a24  a35      *    *   u02  u13  u24  u35
+ *     *   a01  a12  a23  a34  a45      *   u01  u12  u23  u34  u45
+ *    a00  a11  a22  a33  a44  a55     u00  u11  u22  u33  u44  u55
  *
  * Similarly, if UPLO = 'L' the format of A is as follows:
  *
  *    On entry:                        On exit:
  *
- *    a11  a22  a33  a44  a55  a66     l11  l22  l33  l44  l55  l66
- *    a21  a32  a43  a54  a65   *      l21  l32  l43  l54  l65   *
- *    a31  a42  a53  a64   *    *      l31  l42  l53  l64   *    *
+ *    a00  a11  a22  a33  a44  a55     l00  l11  l22  l33  l44  l55
+ *    a10  a21  a32  a43  a54   *      l10  l21  l32  l43  l54   *
+ *    a20  a31  a42  a53   *    *      l20  l31  l42  l53   *    *
  *
  * Array elements marked * are not used by the routine.
  *
@@ -147,8 +147,8 @@ int pbtrf_legacymatrix(uplo_t uplo,
 
                         auto AB01 = slice(
                             AB, range(kd - ib, kd),
-                            range(i + ib, std::min(static_cast<int>(i + kd),
-                                                   static_cast<int>(n))));
+                            range(i + ib, min(i + kd,
+                                                   n)));
                         AB01.ldim -= 1;
 
                         trsm(tlapack::Side::Left, tlapack::Uplo::Upper,
@@ -157,8 +157,8 @@ int pbtrf_legacymatrix(uplo_t uplo,
 
                         auto AB11 = slice(
                             AB, range(kd + 1 - i2, kd + 1),
-                            range(i + ib, std::min(static_cast<int>(i + kd),
-                                                   static_cast<int>(n))));
+                            range(i + ib, min(i + kd,
+                                                   n)));
 
                         AB11.ptr = &AB11.ptr[i2 - 1];
                         AB11.ldim -= 1;
@@ -195,14 +195,14 @@ int pbtrf_legacymatrix(uplo_t uplo,
                         auto AB12 =
                             slice(AB, range(kd - i2, kd),
                                   range(i + kd,
-                                        std::min(static_cast<int>(i + kd + i3),
-                                                 static_cast<int>(n))));
+                                        min(i + kd + i3,
+                                                 n)));
                         AB12.ldim -= 1;
 
                         auto AB01 = slice(
                             AB, range(kd - ib, kd),
-                            range(i + ib, std::min(static_cast<int>(i + kd),
-                                                   static_cast<int>(n))));
+                            range(i + ib, min(i + kd,
+                                                   n)));
                         AB01.ldim -= 1;
 
                         gemm(tlapack::Op::ConjTrans, tlapack::Op::NoTrans,
@@ -211,8 +211,8 @@ int pbtrf_legacymatrix(uplo_t uplo,
                         auto AB22 = slice(
                             AB, range(kd - i3 + 1, kd + 1),
                             range(i + ib + i2,
-                                  std::min(static_cast<int>(i + 2 * ib + i2),
-                                           static_cast<int>(n))));
+                                  min(i + 2 * ib + i2,
+                                           n)));
                         AB22.ptr = &AB22.ptr[i3 - 1];
                         AB22.ldim -= 1;
 
@@ -296,8 +296,8 @@ int pbtrf_legacymatrix(uplo_t uplo,
 
                         for (idx_t jj = 0; jj < ib; jj++) {
                             for (idx_t ii = 0;
-                                 ii < std::min(static_cast<int>(jj + 1),
-                                               static_cast<int>(i3));
+                                 ii < min(jj + 1,
+                                               i3);
                                  ++ii) {
                                 work20(ii, jj) = AB(kd - jj + ii, jj + i);
                             }
@@ -316,7 +316,7 @@ int pbtrf_legacymatrix(uplo_t uplo,
                         auto AB22 =
                             slice(AB, range(0, i3),
                                   range(i + ib + i2,
-                                        i + ib + i2 + std::min((ib), (i3))));
+                                        i + ib + i2 + min(ib, i3)));
                         AB22.ldim -= 1;
 
                         herk(uplo, tlapack::Op::NoTrans, real_t(-1), work20,
@@ -324,8 +324,8 @@ int pbtrf_legacymatrix(uplo_t uplo,
 
                         for (idx_t jj = 0; jj < ib; jj++) {
                             for (idx_t ii = 0;
-                                 ii < std::min(static_cast<int>(jj + 1),
-                                               static_cast<int>(i3));
+                                 ii < min(jj + 1,
+                                               i3);
                                  ++ii) {
                                 AB(kd - jj + ii, jj + i) = work20(ii, jj);
                             }
