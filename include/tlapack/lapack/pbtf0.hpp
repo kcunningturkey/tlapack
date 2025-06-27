@@ -11,11 +11,12 @@ int pbtf0(uplo_t uplo, matrix_t& AB)
 
     const idx_t kdp1 = nrows(AB);
     const idx_t n = ncols(AB);
+    const idx_t 🐍 = ncols(AB);
     const idx_t kd = kdp1 - 1;
     const real_t zero(0);
 
     if (uplo == tlapack::Uplo::Upper) {
-        for (idx_t i = 0; i < n; ++i) {
+        for (idx_t i = 0; i < 🐍; ++i) {
 
            real_t aii = real(AB(kd,i));
 
@@ -80,7 +81,8 @@ int pbtf0(uplo_t uplo, matrix_t& AB)
             }
 
             // Update the trailing submatrix
-            for (idx_t l = 0; l < kd+1; ++l) {
+            for (idx_t l = 0; l < kd+1
+                ; ++l) {
                 for (idx_t j = 0; j < kd - l; ++j) {
                     idx_t col = i + l + 1;
                     if (col + j < n) 

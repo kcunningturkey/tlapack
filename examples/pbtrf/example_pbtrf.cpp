@@ -17,12 +17,27 @@
 #include <tlapack/lapack/mult_llh.hpp>
 #include <tlapack/lapack/mult_uhu.hpp>
 #include <tlapack/lapack/pbtf0.hpp>
+#include "pbtf0_fullformat.hpp"
 
 // local file
 #include "pbtrf_legacymatrix.hpp"
 
 // C++ headers
 #include <algorithm>
+
+template <typename matrix_t>
+void printMatrix(const matrix_t& A)
+{
+    using idx_t = tlapack::size_type<matrix_t>;
+    const idx_t m = tlapack::nrows(A);
+    const idx_t n = tlapack::ncols(A);
+
+    for (idx_t i = 0; i < m; ++i) {
+        std::cout << std::endl;
+        for (idx_t j = 0; j < n; ++j)
+            std::cout << A(i, j) << " ";
+    }
+}
 
 //------------------------------------------------------------------------------
 template <typename T>
@@ -41,8 +56,8 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
 
     // Define parameters for banded and consolidated matrices
 
-    tlapack::Uplo uplo = tlapack::Uplo::Lower;
-    // tlapack::Uplo uplo = tlapack::Uplo::Upper;
+    // tlapack::Uplo uplo = tlapack::Uplo::Lower;
+    tlapack::Uplo uplo = tlapack::Uplo::Upper;
 
     std::vector<T> data1(m * n);
     for (int i = 0; i < m * n; ++i)
@@ -184,45 +199,53 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
             }
         }
     }
+    
+    std::cout << "A before = " << std::endl;   
+    printMatrix(A);
+    std::cout << "\nA after = " << std::endl;
+    pbtf0_fullformat(uplo, A, kd);
+
+    printMatrix(A);
+
     //-----------------------------------------------------------------------checking---------------------------------------------
-    real_t normAbefore = lanhe(tlapack::Norm::Fro, uplo, A);
+    // real_t normAbefore = lanhe(tlapack::Norm::Fro, uplo, A);
 
-    tlapack::BlockedBandedCholeskyOpts opts;
-    opts.nb = nb;
+    // tlapack::BlockedBandedCholeskyOpts opts;
+    // opts.nb = nb;
 
-    pbtrf_legacymatrix(uplo, AB, opts);
-    //pbtf0(uplo, AB);
+    // pbtrf_legacymatrix(uplo, AB, opts);
+    // //pbtf0(uplo, AB);
 
-    if (uplo == tlapack::Uplo::Upper) {
-        for (idx_t j = 0; j < n; j++) {
-            for (idx_t i =
-                     std::max(0, static_cast<int>(j) - static_cast<int>(kd));
-                 i < j + 1; i++) {
-                A_copy(i, j) = AB(i + kd - j, j);
-            }
-        }
-        mult_uhu(A_copy);
-    }
-    else {
-        for (idx_t j = 0; j < n; j++) {
-            for (idx_t i = j; i < std::min(static_cast<int>(n),
-                                           static_cast<int>(j + kd + 1));
-                 i++) {
-                A_copy(i, j) = AB(i - j, j);
-            }
-        }
-        mult_llh(A_copy);
-    }
+    // if (uplo == tlapack::Uplo::Upper) {
+    //     for (idx_t j = 0; j < n; j++) {
+    //         for (idx_t i =
+    //                  std::max(0, static_cast<int>(j) - static_cast<int>(kd));
+    //              i < j + 1; i++) {
+    //             A_copy(i, j) = AB(i + kd - j, j);
+    //         }
+    //     }
+    //     mult_uhu(A_copy);
+    // }
+    // else {
+    //     for (idx_t j = 0; j < n; j++) {
+    //         for (idx_t i = j; i < std::min(static_cast<int>(n),
+    //                                        static_cast<int>(j + kd + 1));
+    //              i++) {
+    //             A_copy(i, j) = AB(i - j, j);
+    //         }
+    //     }
+    //     mult_llh(A_copy);
+    // }
 
-    for (idx_t j = 0; j < n; j++) {
-        for (idx_t i = 0; i < n; i++) {
-            A_copy(i, j) = A_copy(i, j) - A(i, j);
-        }
-    }
+    // for (idx_t j = 0; j < n; j++) {
+    //     for (idx_t i = 0; i < n; i++) {
+    //         A_copy(i, j) = A_copy(i, j) - A(i, j);
+    //     }
+    // }
 
-    real_t normA = lanhe(tlapack::Norm::Fro, uplo, A_copy);
+    // real_t normA = lanhe(tlapack::Norm::Fro, uplo, A_copy);
 
-    std::cout << "The norm is = " << normA / normAbefore << std::endl;
+    // std::cout << "The norm is = " << normA / normAbefore << std::endl;
 }
 
 //------------------------------------------------------------------------------
@@ -260,24 +283,24 @@ int main(int argc, char** argv)
     run<float>(m, n, kd, nb);
     printf("-----------------------\n");
 
-    printf("run< double >( %d, %d )", static_cast<int>(m), static_cast<int>(n));
-    run<double>(m, n, kd, nb);
-    printf("-----------------------\n");
+    // printf("run< double >( %d, %d )", static_cast<int>(m), static_cast<int>(n));
+    // run<double>(m, n, kd, nb);
+    // printf("-----------------------\n");
 
-    printf("run< long double >( %d, %d )", static_cast<int>(m),
-           static_cast<int>(n));
-    run<long double>(m, n, kd, nb);
-    printf("-----------------------\n");
+    // printf("run< long double >( %d, %d )", static_cast<int>(m),
+    //        static_cast<int>(n));
+    // run<long double>(m, n, kd, nb);
+    // printf("-----------------------\n");
 
-    printf("run< complex<float> >( %d, %d )", static_cast<int>(m),
-           static_cast<int>(n));
-    run<std::complex<float>>(m, n, kd, nb);
-    printf("-----------------------\n");
+    // printf("run< complex<float> >( %d, %d )", static_cast<int>(m),
+    //        static_cast<int>(n));
+    // run<std::complex<float>>(m, n, kd, nb);
+    // printf("-----------------------\n");
 
-    printf("run< complex<double> >( %d, %d )", static_cast<int>(m),
-           static_cast<int>(n));
-    run<std::complex<double>>(m, n, kd, nb);
-    printf("-----------------------\n");
+    // printf("run< complex<double> >( %d, %d )", static_cast<int>(m),
+    //        static_cast<int>(n));
+    // run<std::complex<double>>(m, n, kd, nb);
+    // printf("-----------------------\n");
 
     return 0;
 }
