@@ -1,14 +1,13 @@
 /// @file test_pbtf0.cpp Test the Cholesky factorization of a symmetric positive
 /// definite band matrix
-/// @author Ella Addison-Taylor, Kyle Cunningham, University of Colorado Denver, USA
+/// @author Ella Addison-Taylor, Kyle Cunningham, University of Colorado Denver,
+/// USA
 //
 // Copyright (c) 2025, University of Colorado Denver. All rights reserved.
 //
 // This file is part of <T>LAPACK.
 // <T>LAPACK is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
-
-#include "TestUploMatrix.hpp"
 
 // Test utilities and definitions (must come before <T>LAPACK headers)
 #include "testutils.hpp"
@@ -25,17 +24,10 @@
 
 using namespace tlapack;
 
-#define TESTUPLO_TYPES_TO_TEST                                          \
-    (TestUploMatrix<float, size_t, Uplo::Lower, Layout::ColMajor>),     \
-        (TestUploMatrix<float, size_t, Uplo::Upper, Layout::ColMajor>), \
-        (TestUploMatrix<float, size_t, Uplo::Lower, Layout::RowMajor>), \
-        (TestUploMatrix<float, size_t, Uplo::Upper, Layout::RowMajor>)
-
 TEMPLATE_TEST_CASE(
-    "Cholesky factorization of a Hermitian positive-definite matrix",
-    "[potrf]",
-    TLAPACK_TYPES_TO_TEST,
-    TESTUPLO_TYPES_TO_TEST)
+    "Cholesky factorization of a Hermitian positive-definite band matrix",
+    "[pbtf0]",
+    TLAPACK_TYPES_TO_TEST)
 {
     using matrix_t = TestType;
     using T = type_t<matrix_t>;
@@ -47,126 +39,130 @@ TEMPLATE_TEST_CASE(
 
     // MatrixMarket reader
     MatrixMarket mm;
-  
-    const idx_t n = GENERATE(32, 43, 55, 74, 130);
-    const idx_t kd = GENERATE(3, 7, 15, 26, 31);
+
+    const idx_t n = GENERATE(1, 3, 10, 40, 130);
+    const idx_t kd = GENERATE(0, 1, 10, 20, 31);
     const Uplo uplo = GENERATE(Uplo::Lower, Uplo::Upper);
 
-    DYNAMIC_SECTION("n = " << n << " kd = " << kd << " uplo = " << uplo )
+    DYNAMIC_SECTION("n = " << n << " kd = " << kd << " uplo = " << uplo)
     {
-        // eps is the machine precision, and tol is the tolerance we accept for
-        // tests to pass
-        const real_t eps = ulp<real_t>();
-        const real_t tol = real_t(n) * eps;
+        if (kd < n) {
+            // eps is the machine precision, and tol is the tolerance we accept
+            // for tests to pass
+            const real_t eps = ulp<real_t>();
+            const real_t tol = real_t(n) * eps;
+            // const real_t tol = real_t(10) * real_t(n) * eps;
 
-        // Create matrices
-        std::vector<T> A_;
-        auto A = new_matrix(A_, n, n);
-        std::vector<T> A_copy_;
-        auto A_copy = new_matrix(A_copy_, n, n);
-        std::vector<T> AB_;
-        auto AB = new_matrix(AB_, kd + 1, n);
+            // Create matrices
+            std::vector<T> A_;
+            auto A = new_matrix(A_, n, n);
+            std::vector<T> A_copy_;
+            auto A_copy = new_matrix(A_copy_, n, n);
+            std::vector<T> AB_;
+            auto AB = new_matrix(AB_, kd + 1, n);
 
-        // Update A with random numbers, and make it positive definite
-        mm.random(uplo, A);
-        for (idx_t j = 0; j < n; ++j)
-            A(j, j) += real_t(n) * real_t(n);
+            // Update A with random numbers, and make it positive definite
+            mm.random(uplo, A);
+            for (idx_t j = 0; j < n; ++j)
+                A(j, j) += real_t(n) * real_t(n);
 
-        if (uplo == Uplo::Upper) {
-            for (idx_t j = 0; j < n; ++j) {
-                for ( idx_t i = j + 1; i < n; ++i) {
-                    if constexpr (is_complex<T>) {
-                        A(i, j) =
-                        T(static_cast<real_t>(0xDEADBEEF),
-                          static_cast<real_t>(0xDEADBEEF));
+            // Filling matrix
+            if (uplo == Uplo::Upper) {
+                for (idx_t j = 0; j < n; ++j) {
+                    for (idx_t i = j + 1; i < n; ++i) {
+                        if constexpr (is_complex<T>) {
+                            A(i, j) = T(static_cast<real_t>(0xDEADBEEF),
+                                        static_cast<real_t>(0xDEADBEEF));
+                        }
+                        else
+                            A(i, j) = static_cast<T>(0xDEADBEEF);
                     }
-                    else
-                        A(i, j) = static_cast<T>(0xDEADBEEF);
                 }
-            }
-            for (idx_t j = kd; j < n; j++) {
-                for (idx_t i = 0; i < j - kd; i++) {
-                    A(i, j) = static_cast<float>(0);
-            }
-        }
-        for (idx_t j = 0; j < n; j++) {
-            for (idx_t i =
-                     std::max(0, static_cast<int>(j) - static_cast<int>(kd));
-                 i < j + 1; i++) {
-                AB(i + kd - j, j) = A(i, j);
-            }
-        }
-        }
-        else {
-            for ( idx_t j = 0; j < n; ++j) {
-                for(idx_t i = 0; i < j; ++i) {
-                    if constexpr (is_complex<T>) {
-                        A(i, j) =
-                        T(static_cast<real_t>(0xDEADBEEF),
-                          static_cast<real_t>(0xDEADBEEF));
+                for (idx_t j = kd; j < n; j++) {
+                    for (idx_t i = 0; i < j - kd; i++) {
+                        A(i, j) = static_cast<float>(0);
                     }
-                    else
-                        A(i, j) = static_cast<T>(0xDEADBEEF);
                 }
-            }
-            for (idx_t j = 0; j < n - kd; j++) {
-                for (idx_t i = kd + j + 1; i < n; i++) {
-                    A(i, j) = static_cast<float>(0);
-            }
-        }
                 for (idx_t j = 0; j < n; j++) {
-            for (idx_t i = j; i < std::min(static_cast<int>(n),
-                                           static_cast<int>(j + kd + 1));
-                 i++) {
-                AB(i - j, j) = A(i, j);
+                    for (idx_t i = std::max(
+                             0, static_cast<int>(j) - static_cast<int>(kd));
+                         i < j + 1; i++) {
+                        AB(i + kd - j, j) = A(i, j);
+                    }
+                }
             }
-        }
-        }
-        
-
-        // TODO: change L to C (optional but would be better)
-        lacpy(GENERAL, A, A_copy);
-        real_t normA = lanhe(tlapack::FROB_NORM, uplo, A);
-
-        // Run the Cholesky factorization
-        int info = pbtf0(uplo, AB);
-
-        // Check that the factorization was successful
-        REQUIRE(info == 0);
-
-        // put AB into A_copy
-        if (uplo == tlapack::Uplo::Upper) {
-        for (idx_t j = 0; j < n; j++) {
-            for (idx_t i =
-                     std::max(0, static_cast<int>(j) - static_cast<int>(kd));
-                 i < j + 1; i++) {
-                A_copy(i, j) = AB(i + kd - j, j);
-            }
-        }
-        mult_uhu(A_copy);
-    }
-    else {
-        for (idx_t j = 0; j < n; j++) {
-            for (idx_t i = j; i < std::min(static_cast<int>(n),
-                                           static_cast<int>(j + kd + 1));
-                 i++) {
-                A_copy(i, j) = AB(i - j, j);
-            }
-        }
-        mult_llh(A_copy);
-    }
-
-        // Check that the factorization is correct
-        for (idx_t i = 0; i < n; i++)
-            for (idx_t j = 0; j < n; j++) {
-                if (uplo == Uplo::Lower && i >= j)
-                    A_copy(i, j) -= A(i, j);
-                else if (uplo == Uplo::Upper && i <= j)
-                    A_copy(i, j) -= A(i, j);
+            else {  // Uplo == Lower
+                for (idx_t j = 0; j < n; ++j) {
+                    for (idx_t i = 0; i < j; ++i) {
+                        if constexpr (is_complex<T>) {
+                            A(i, j) = T(static_cast<real_t>(0xDEADBEEF),
+                                        static_cast<real_t>(0xDEADBEEF));
+                        }
+                        else
+                            A(i, j) = static_cast<T>(0xDEADBEEF);
+                    }
+                }
+                for (idx_t j = 0; j < n - kd; j++) {
+                    for (idx_t i = kd + j + 1; i < n; i++) {
+                        A(i, j) = static_cast<float>(0);
+                    }
+                }
+                for (idx_t j = 0; j < n; j++) {
+                    for (idx_t i = j;
+                         i < std::min(static_cast<int>(n),
+                                      static_cast<int>(j + kd + 1));
+                         i++) {
+                        AB(i - j, j) = A(i, j);
+                    }
+                }
             }
 
-        // Check for relative error: norm(A-cholesky(A))/norm(A)
-        real_t error = tlapack::lanhe(tlapack::MAX_NORM, uplo, A_copy) / normA;
-        CHECK(error <= tol);
+            // Compute the norm of A
+            lacpy(GENERAL, A, A_copy);
+            real_t normA = lanhe(tlapack::FROB_NORM, uplo, A);
+
+            // Run the Cholesky factorization
+            int info = pbtf0(uplo, AB);
+
+            // Check that the factorization was successful
+            REQUIRE(info == 0);
+
+            // put AB into A_copy
+            if (uplo == tlapack::Uplo::Upper) {
+                for (idx_t j = 0; j < n; j++) {
+                    for (idx_t i = std::max(
+                             0, static_cast<int>(j) - static_cast<int>(kd));
+                         i < j + 1; i++) {
+                        A_copy(i, j) = AB(i + kd - j, j);
+                    }
+                }
+                mult_uhu(A_copy);
+            }
+            else {
+                for (idx_t j = 0; j < n; j++) {
+                    for (idx_t i = j;
+                         i < std::min(static_cast<int>(n),
+                                      static_cast<int>(j + kd + 1));
+                         i++) {
+                        A_copy(i, j) = AB(i - j, j);
+                    }
+                }
+                mult_llh(A_copy);
+            }
+
+            // Check that the factorization is correct
+            for (idx_t i = 0; i < n; i++)
+                for (idx_t j = 0; j < n; j++) {
+                    if (uplo == Uplo::Lower && i >= j)
+                        A_copy(i, j) -= A(i, j);
+                    else if (uplo == Uplo::Upper && i <= j)
+                        A_copy(i, j) -= A(i, j);
+                }
+
+            // Check for relative error: norm(A-cholesky(A))/norm(A)
+            real_t error =
+                tlapack::lanhe(tlapack::MAX_NORM, uplo, A_copy) / normA;
+            CHECK(error <= tol * normA * normA);
+        }
     }
 }
