@@ -41,7 +41,7 @@ TEMPLATE_TEST_CASE(
     MatrixMarket mm;
 
     const idx_t n = GENERATE(1, 3, 10, 40, 130);
-    const idx_t kd = GENERATE(0, 1, 10, 20, 31);
+    const idx_t kd = GENERATE(0, 1, 9, 10, 20, 31);
     const Uplo uplo = GENERATE(Uplo::Lower, Uplo::Upper);
 
     DYNAMIC_SECTION("n = " << n << " kd = " << kd << " uplo = " << uplo)
@@ -162,7 +162,7 @@ TEMPLATE_TEST_CASE(
             // Check for relative error: norm(A-cholesky(A))/norm(A)
             real_t error =
                 tlapack::lanhe(tlapack::MAX_NORM, uplo, A_copy) / normA;
-            CHECK(error <= tol * normA * normA);
+            CHECK(error <= tol);
         }
     }
 }

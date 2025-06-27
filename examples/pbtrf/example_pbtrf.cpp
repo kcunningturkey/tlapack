@@ -10,6 +10,7 @@
 
 // Plugins for <T>LAPACK (must come before <T>LAPACK headers)
 #include <tlapack/plugins/legacyArray.hpp>
+#include <tlapack/LegacyBandedMatrix.hpp>
 
 // <T>LAPACK
 #include <tlapack/lapack/lanhe.hpp>
@@ -40,8 +41,12 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
 
     // Define parameters for banded and consolidated matrices
 
-    // tlapack::Uplo uplo = tlapack::Uplo::Lower;
-    tlapack::Uplo uplo = tlapack::Uplo::Upper;
+    tlapack::Uplo uplo = tlapack::Uplo::Lower;
+    // tlapack::Uplo uplo = tlapack::Uplo::Upper;
+
+    std::vector<T> data1(m * n);
+    for (int i = 0; i < m * n; ++i)
+        data1[i] = i + 1;
 
     // Declacre matrices
     std::vector<T> A_;
@@ -50,15 +55,44 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     auto A_copy = new_matrix(A_copy_, m, n);
     std::vector<T> AB_;
     auto AB = new_matrix(AB_, kd + 1, n);
+    tlapack::LegacyBandedMatrix<T> TAB(m, m, n / 2, kd, &data1[0]);
+
+    for (idx_t j = 0; j < n; j++) {
+            real_t real_diag;   // Ensure diagonals are real
+            real_diag = n * n;  // Strong positive diagonal
+            A(j, j) = real_diag;
+
+            for (idx_t i =
+                     std::max(0, static_cast<int>(j) - static_cast<int>(kd));
+                 i < j; i++) {
+                if constexpr (tlapack::is_complex<T>) {
+                    TAB(i, j) =
+                        T(static_cast<real_t>(i + 5),
+                          static_cast<real_t>(j));  // Only if T is complex
+                }
+                else {
+                    TAB(i, j) = static_cast<T>(i + 5);  // Only if T is real
+                }
+            }
+        }
+
+        // // printing banded
+        // for (idx_t j = 0; j < n; j++) {
+        //     std::cout << std::endl;
+        //     for ( idx_t i = std::max(0, static_cast<int>(j) - static_cast<int>(kd));
+        //          i < j; i++) {
+        //             std::cout << TAB(i, j) << " ";
+        //          }
+        // }
 
     for (idx_t j = 0; j < n; ++j) {
         for (idx_t i = 0; i < n; ++i) {
             if constexpr (tlapack::is_complex<T>) {
-                A(i, j) = T(static_cast<real_t>(0xDEADBEEF),
-                            static_cast<real_t>(0xDEADBEEF));
+                A(i, j) = T(static_cast<real_t>(0xCAFEBABE),
+                            static_cast<real_t>(0xCAFEBABE));
             }
             else {
-                A(i, j) = static_cast<real_t>(0xDEADBEEF);
+                A(i, j) = static_cast<real_t>(0xCAFEBABE);
             }
         }
     }
@@ -66,11 +100,11 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     for (idx_t j = 0; j < kd + 1; ++j) {
         for (idx_t i = 0; i < n; ++i) {
             if constexpr (tlapack::is_complex<T>) {
-                AB(j, i) = T(static_cast<real_t>(0xDEADBEEF),
-                             static_cast<real_t>(0xDEADBEEF));
+                AB(j, i) = T(static_cast<real_t>(0xCAFEBABE),
+                             static_cast<real_t>(0xCAFEBABE));
             }
             else {
-                AB(j, i) = static_cast<real_t>(0xDEADBEEF);
+                AB(j, i) = static_cast<real_t>(0xCAFEBABE);
             }
         }
     }
@@ -204,10 +238,18 @@ int main(int argc, char** argv)
 
     idx_t m, n, kd, nb;
 
-    m = 100;
+    // GENERATE(1, 3, 10, 40, 130);
+    // const idx_t kd = GENERATE(0, 1, 10, 20, 31);
+
+    m = 10;
     n = m;
-    kd = 20;
-    nb = 25;
+    kd = 3;
+    nb = 10;
+
+    // m = 40;
+    // n = m;
+    // kd = 31;
+    // nb = 32;
 
     srand(3);  // Init random seed
 

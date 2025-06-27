@@ -80,10 +80,11 @@ int pbtf0(uplo_t uplo, matrix_t& AB)
             }
 
             // Update the trailing submatrix
-            for (idx_t l = 0; l < kd; ++l) {
-                for (idx_t j = 0; j < min(n - kd, kd - l); ++j) {
+            for (idx_t l = 0; l < kd+1; ++l) {
+                for (idx_t j = 0; j < kd - l; ++j) {
                     idx_t col = i + l + 1;
-                    if (col + j < n) {
+                    if (col + j < n) 
+                    {
                         AB(j, col) -=
                             AB(j + l + 1, i) * conj(AB(l + 1, i));
                     }
