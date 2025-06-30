@@ -19,7 +19,9 @@
 #include <tlapack/lapack/pbtf0.hpp>
 #include <tlapack/lapack/lacpy.hpp>
 #include <tlapack/lapack/potrf.hpp>
-#include "pbtf0_fullformat.hpp"
+#include "pbtf0_fullaccess.hpp"
+#include "pbtrf_fullaccess_slice_trapezoid.hpp"
+#include "pbtrf_fullaccess.hpp"
 
 // local file
 #include "pbtrf_legacymatrix.hpp"
@@ -234,7 +236,6 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
             }
         }
     }
-
     if (uplo == tlapack::Uplo::Upper) {
         for (idx_t j = kd; j < n; j++) {
             for (idx_t i = 0; i < j - kd; i++) {
@@ -254,20 +255,31 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     printMatrix(A);
     lacpy(tlapack::Uplo::General, A, A_copy);
     potrf(uplo, A_copy);
+
+    tlapack::BlockedBandedCholeskyOpts opts;
+    opts.nb = nb;
     
-    std::cout << "starting pbtf0" << std::endl;
-    if (uplo == tlapack::Uplo::Upper) {
-    std::cout << "\nTAB after = " << std::endl;
-    pbtf0_fullformat(uplo, TAB, kd);
-    printBandedMatrix(TAB);
-    }
-    else {
-        std::cout << "\nTAB before = " << std::endl;
-        printBandedMatrix(TABl);
-        std::cout << "\nTAB after = " << std::endl;
-    pbtf0_fullformat(uplo, TABl, kd);
-        printBandedMatrix(TABl);
-    }
+    std::cout << "\nA after = " << std::endl;
+    // pbtrf_fullaccess_slice_trapezoid(uplo, A, opts);
+    pbtrf_fullaccess(uplo, A, opts);
+    // pbtf0(uplo, A);
+
+
+    printMatrix(A);
+
+    // std::cout << "starting pbtf0" << std::endl;
+    // if (uplo == tlapack::Uplo::Upper) {
+    // std::cout << "\nTAB after = " << std::endl;
+    // pbtf0_fullaccess(uplo, TAB, kd);
+    // printBandedMatrix(TAB);
+    // }
+    // else {
+    //     std::cout << "\nTAB before = " << std::endl;
+    //     printBandedMatrix(TABl);
+    //     std::cout << "\nTAB after = " << std::endl;
+    // pbtf0_fullaccess(uplo, TABl, kd);
+    //     printBandedMatrix(TABl);
+    // }
 
     std::cout << "\nCorrect A = " << std::endl;
     printMatrix(A_copy);
@@ -332,7 +344,7 @@ int main(int argc, char** argv)
     m = 10;
     n = m;
     kd = 3;
-    nb = 10;
+    nb = 2;
 
     // m = 40;
     // n = m;
