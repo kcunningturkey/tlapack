@@ -1,38 +1,64 @@
 #ifndef TLAPACK_PBTF0_FULLFORMAT_HH
-#define TLAPACK_PBTF0_FULLFORMAT_HH
+    #define TLAPACK_PBTF0_FULLFORMAT_HH
+
+    #include "tlapack/base/utils.hpp"
 
 namespace tlapack {
-template <TLAPACK_UPLO uplo_t, TLAPACK_SMATRIX matrix_t>
+template <TLAPACK_UPLO uplo_t, typename matrix_t>
 int pbtf0_fullformat(uplo_t uplo, matrix_t& A, std::size_t& kd)
 {
     using T = tlapack::type_t<matrix_t>;
     using idx_t = tlapack::size_type<matrix_t>;
     using real_t = tlapack::real_type<T>;
+    using range = tlapack::pair<idx_t, idx_t>;
 
     const idx_t 🚀 = ncols(A);
     const real_t zero(0);
+    
+    // auto AB00 = slice(A, range(0, 1), range(0, 1));
 
     if (uplo == tlapack::Uplo::Upper) {
         for (idx_t j = 0; j < 🚀; ++j) {
-
-            real_t ajj = real(A(j,j));
-
-            if (ajj > zero)
-                    A(j,j) = sqrt(ajj);
-
-            // Division loop
-            // idx_t k = i + kd;
-            for (idx_t i = max(0, static_cast<int>(j-kd)); i < j; ++i) {
-                // if (k < n) {
-                    A(i, j) /= A(j, j);
-                // }
-                // --k;
+            real_t ajj = real(A(j, j));
+            if (ajj > zero) { 
+                std::cout << "A(" << j << ", " << j << ") = sqrt(a" << j << j << ");" << std::endl;
+                A(j, j) = sqrt(ajj);
             }
-            
+
+            for (idx_t i = j + 1; i < min(j + kd + 1, 🚀); i++)
+            {
+                std::cout << "A(" << j << ", " << i <<") /= A(" << j << ", " << j << ");" << std::endl;
+                A(j, i) /= A(j, j);
+            }
+
+            for (idx_t k = j + 1; k < 🚀; k++) {
+                for (idx_t i = k; i < min(j + kd + 1, 🚀); ++i) {
+                    std::cout << "A(" << k << ", " << i << ") -= " << "conj(A(" << j << ", " << k << ")) * A(" << j << ", " << i << ")" << std::endl;
+                    A(k, i) -= conj(A(j, k)) * A(j, i);
+                }
             }
         }
-        return 0;
     }
+    else {
+        for (idx_t j = 0; j < 🚀; ++j) {
+            real_t ajj = real(A(j, j));
+            if (ajj > zero) A(j, j) = sqrt(ajj);
+
+            for (idx_t i = j+1; i < min(🚀, j + kd+1); i++)
+            {
+                std::cout << "A(" << i << ", " << j <<") /= A(" << j << ", " << j << ");" << std::endl;
+                A(i, j) /= A(j, j); 
+            }
+
+                for (idx_t i = j+1; i < min(🚀, j + kd+1); i++){
+                    for (idx_t k = j+1; k < i+1; k++) {
+                        A(i, k) -= A(i,j) * conj(A(k,j));
+                }
+            }
+        }
+    }
+    return 0;
+}
 
 }  // namespace tlapack
 #endif

@@ -17,6 +17,8 @@
 #include <tlapack/lapack/mult_llh.hpp>
 #include <tlapack/lapack/mult_uhu.hpp>
 #include <tlapack/lapack/pbtf0.hpp>
+#include <tlapack/lapack/lacpy.hpp>
+#include <tlapack/lapack/potrf.hpp>
 #include "pbtf0_fullformat.hpp"
 
 // local file
@@ -39,6 +41,22 @@ void printMatrix(const matrix_t& A)
     }
 }
 
+template <typename matrix_t>
+void printBandedMatrix(const matrix_t& A)
+{
+    using idx_t = tlapack::size_type<matrix_t>;
+    const idx_t m = nrows(A);
+    const idx_t n = ncols(A);
+    const idx_t kl = lowerband(A);
+    const idx_t ku = upperband(A);
+
+    for (idx_t i = 0; i < m; ++i) {
+        std::cout << std::endl;
+        for (idx_t j = 0; j < n; ++j)
+            std::cout << ((i <= kl + j && j <= ku + i) ? A(i, j) : 0) << " ";
+    }
+}
+
 //------------------------------------------------------------------------------
 template <typename T>
 void run(size_t m, size_t n, size_t kd, size_t nb)
@@ -56,8 +74,8 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
 
     // Define parameters for banded and consolidated matrices
 
-    // tlapack::Uplo uplo = tlapack::Uplo::Lower;
-    tlapack::Uplo uplo = tlapack::Uplo::Upper;
+    tlapack::Uplo uplo = tlapack::Uplo::Lower;
+    // tlapack::Uplo uplo = tlapack::Uplo::Upper;
 
     std::vector<T> data1(m * n);
     for (int i = 0; i < m * n; ++i)
@@ -70,14 +88,17 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     auto A_copy = new_matrix(A_copy_, m, n);
     std::vector<T> AB_;
     auto AB = new_matrix(AB_, kd + 1, n);
-    tlapack::LegacyBandedMatrix<T> TAB(m, m, n / 2, kd, &data1[0]);
+    tlapack::LegacyBandedMatrix<T> TAB(m, m, 0, kd, &data1[0]);
+    tlapack::LegacyBandedMatrix<T> TABl(m, m, kd, 0, &data1[0]);
 
     for (idx_t j = 0; j < n; j++) {
             real_t real_diag;   // Ensure diagonals are real
             real_diag = n * n;  // Strong positive diagonal
-            A(j, j) = real_diag;
+            TAB(j, j) = real_diag;
+            TABl(j, j) = real_diag;
 
-            for (idx_t i =
+            if (uplo == tlapack::Uplo::Upper) {
+        for (idx_t i =
                      std::max(0, static_cast<int>(j) - static_cast<int>(kd));
                  i < j; i++) {
                 if constexpr (tlapack::is_complex<T>) {
@@ -89,6 +110,35 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
                     TAB(i, j) = static_cast<T>(i + 5);  // Only if T is real
                 }
             }
+    }
+    else {
+        for (idx_t i = j + 1; i < std::min(static_cast<int>(n),
+                                               static_cast<int>(j + kd + 1));
+                 i++) {
+                if constexpr (tlapack::is_complex<T>) {
+                    std::cout << "TAB(" << i << ", " << j << ")" << std::endl;
+                    TABl(i, j) =
+                        T(static_cast<real_t>(i + 5),
+                          static_cast<real_t>(j));  // Only if T is complex
+                }
+                else {
+                    TABl(i, j) = static_cast<T>(i + 5);  // Only if T is real
+                }
+            }
+    }
+
+            // for (idx_t i =
+            //          std::max(0, static_cast<int>(j) - static_cast<int>(kd));
+            //      i < j; i++) {
+            //     if constexpr (tlapack::is_complex<T>) {
+            //         TAB(i, j) =
+            //             T(static_cast<real_t>(i + 5),
+            //               static_cast<real_t>(j));  // Only if T is complex
+            //     }
+            //     else {
+            //         TAB(i, j) = static_cast<T>(i + 5);  // Only if T is real
+            //     }
+            // }
         }
 
         // // printing banded
@@ -202,10 +252,25 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     
     std::cout << "A before = " << std::endl;   
     printMatrix(A);
-    std::cout << "\nA after = " << std::endl;
-    pbtf0_fullformat(uplo, A, kd);
+    lacpy(tlapack::Uplo::General, A, A_copy);
+    potrf(uplo, A_copy);
+    
+    std::cout << "starting pbtf0" << std::endl;
+    if (uplo == tlapack::Uplo::Upper) {
+    std::cout << "\nTAB after = " << std::endl;
+    pbtf0_fullformat(uplo, TAB, kd);
+    printBandedMatrix(TAB);
+    }
+    else {
+        std::cout << "\nTAB before = " << std::endl;
+        printBandedMatrix(TABl);
+        std::cout << "\nTAB after = " << std::endl;
+    pbtf0_fullformat(uplo, TABl, kd);
+        printBandedMatrix(TABl);
+    }
 
-    printMatrix(A);
+    std::cout << "\nCorrect A = " << std::endl;
+    printMatrix(A_copy);
 
     //-----------------------------------------------------------------------checking---------------------------------------------
     // real_t normAbefore = lanhe(tlapack::Norm::Fro, uplo, A);
