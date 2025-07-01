@@ -1,6 +1,7 @@
 /// @file potrf.hpp Computes the Cholesky factorization of a Hermitian positive
 /// definite band matrix AB.
-/// @author Ella Addison-Taylor, Kyle Cunningham, Henricus Bouwmeester, University of Colorado Denver, USA
+/// @author Ella Addison-Taylor, Kyle Cunningham, Henricus Bouwmeester,
+/// University of Colorado Denver, USA
 //
 // Copyright (c) 2025, University of Colorado Denver. All rights reserved.
 //
@@ -11,14 +12,13 @@
 #ifndef TLAPACK_PBTRF_FULLACCESS_HH
 #define TLAPACK_PBTRF_FULLACCESS_HH
 
+#include "pbtf0_fullaccess.hpp"
 #include "tlapack/base/utils.hpp"
+#include "tlapack/blas/gemm.hpp"
 #include "tlapack/blas/herk.hpp"
 #include "tlapack/blas/trsm.hpp"
 #include "tlapack/lapack/pbtf0.hpp"
-#include "tlapack/blas/gemm.hpp"
 #include "tlapack/lapack/potf2.hpp"
-#include "pbtf0_fullaccess.hpp"
-
 
 namespace tlapack {
 
@@ -58,9 +58,11 @@ struct BlockedBandedTestCholeskyOpts : public EcOpts {
  *
  * @param[in,out] AB
  *       AB is an array, dimension (kd+1, N)
- *      On entry, the Hermitian positive definite band matrix AB of size kd+1-by-n.
+ *      On entry, the Hermitian positive definite band matrix AB of size
+ * kd+1-by-n.
  *
- *      - If uplo = Uplo::Upper, AB(i + kd - j, j) = A(i, j) for max(0,j-kd)<=i<=j
+ *      - If uplo = Uplo::Upper, AB(i + kd - j, j) = A(i, j) for
+ * max(0,j-kd)<=i<=j
  *
  *      - If uplo = Uplo::Lower, AB(i - j, j) = A(i, j) for j<=i<=min(n,j+kd+1)
  *
@@ -68,15 +70,15 @@ struct BlockedBandedTestCholeskyOpts : public EcOpts {
  *      factorization $A = U^H U$ or $A = L L^H.$
  *
  * @param[in] opts Options.
- *      Define the behavior of nb for pbtrf_legacymatrix.     
+ *      Define the behavior of nb for pbtrf_legacymatrix.
  *
  * @return 0: successful exit.
- * 
+ *
  * @return i, 0 < i <= n, if the leading minor of order i is not
  *      positive definite, and the factorization could not be completed.
- * 
+ *
  * @par Further Details
- * 
+ *
  * The band storage scheme is illustrated by the following example, when
  * N = 6, KD = 2, and UPLO = 'U':
  *
@@ -101,9 +103,9 @@ struct BlockedBandedTestCholeskyOpts : public EcOpts {
 
 template <TLAPACK_UPLO uplo_t, TLAPACK_SMATRIX matrix_t>
 int pbtrf_fullaccess(uplo_t uplo,
-           matrix_t& A,
-           std::size_t& kd,
-           const BlockedBandedTestCholeskyOpts& opts = {})
+                     matrix_t& A,
+                     std::size_t& kd,
+                     const BlockedBandedTestCholeskyOpts& opts = {})
 {
     using T = tlapack::type_t<matrix_t>;
     using real_t = tlapack::real_type<T>;
@@ -136,19 +138,20 @@ int pbtrf_fullaccess(uplo_t uplo,
                 if (n < nb + i) {
                     ib = n - i;
                 }
-                else  
-                {
+                else {
                     ib = nb;
                 }
 
-                auto A00 =
-                    slice(A, range(i, ib + i), range(i, min(i + ib, n)));
-
+                std::cout << "AB = " << std::endl;
+                printMatrix3(A);
+                auto A00 = slice(A, range(i, ib + i), range(i, min(i + ib, n)));
+                std::cout << "A00 = " << std::endl;
+                printMatrix3(A00);
 
                 potf2(tlapack::Uplo::Upper, A00);
+                std::cout << "potf2(tlapack::Uplo::Upper, A00);" << std::endl;
 
                 if (i + ib < n) {
-                    
                     // i2 = min(kd-ib, n-i-ib)
                     idx_t i2;
                     if (kd + i < n) {
@@ -159,24 +162,20 @@ int pbtrf_fullaccess(uplo_t uplo,
                     }
 
                     if (i2 > 0) {
-
-                        auto A01 = slice(
-                            A, range(i, ib + i),
-                            range(i + ib, min(i + ib + i2,
-                                                   n)));
+                        auto A01 = slice(A, range(i, ib + i),
+                                         range(i + ib, min(i + ib + i2, n)));
 
                         trsm(tlapack::Side::Left, tlapack::Uplo::Upper,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, A01);
+                        std::cout << "trsm(A00, A01)" << std::endl;
 
-                        auto A11 = slice(
-                            A, range(i + ib, i + kd),
-                            range(i + ib, min(i + kd,
-                                                   n)));
+                        auto A11 = slice(A, range(i + ib, i + kd),
+                                         range(i + ib, min(i + kd, n)));
 
                         herk(tlapack::Uplo::Upper, tlapack::Op::ConjTrans,
                              real_t(-1), A01, real_t(1), A11);
-
+                        std::cout << "herk(A01,A11);" << std::endl;
                     }
                     // i3 = min(ib, n-i-kd)
                     idx_t i3;
@@ -191,57 +190,49 @@ int pbtrf_fullaccess(uplo_t uplo,
                     }
 
                     if (i3 > 0) {
-                        
+                        auto A02 = slice(A, range(i, i + ib),
+                                         range(i + kd, i + kd + i3));
                         auto work02 = slice(work, range(0, ib), range(0, i3));
-
-                        for (idx_t jj = 0; jj < i3; jj++) {
-                            for (idx_t ii = jj; ii < ib; ++ii) {
-                                work02(ii, jj) = A(i+ii, i+kd+jj);
-                            }
-                        }
+                        for (idx_t jj = 0; jj < i3; jj++)
+                            for (idx_t ii = jj; ii < ib; ++ii)
+                                work02(ii, jj) = A02(ii, jj);
 
                         trsm(tlapack::Side::Left, tlapack::Uplo::Upper,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, work02);
 
-                        auto A12 =
-                            slice(A, range(i + ib, i + kd),
-                                  range(i + kd,
-                                        min(i + kd + i3,
-                                                 n)));
+                        std::cout << "trsm( A00, work02);" << std::endl;
 
-                        auto A01 = slice(
-                            A, range(i, ib + i),
-                            range(i + ib, min(i + ib + i2,
-                                                   n)));
+                        auto A12 = slice(A, range(i + ib, i + kd),
+                                         range(i + kd, min(i + kd + i3, n)));
+                        std::cout << "A12 = rows = " << i + ib << ", " << i + kd << ") cols = " << i + kd << ", " << min(i + kd + i3, n) << std::endl;
+                        printMatrix3(A12);
+
+                        auto A01 = slice(A, range(i, ib + i),
+                                         range(i + ib, min(i + ib + i2, n)));
 
                         gemm(tlapack::Op::ConjTrans, tlapack::Op::NoTrans,
                              real_t(-1), A01, work02, real_t(1), A12);
+                        std::cout << "gemm( A01, work02, A12);" << std::endl;
 
-                        auto A22 = slice(
-                            A, range(i + kd,
-                                        min(i + kd + i3,
-                                                 n)),
-                            range(i + kd,
-                                        min(i + kd + i3,
-                                                 n)));
-
+                        auto A22 = slice(A, range(i + kd, min(i + kd + i3, n)),
+                                         range(i + kd, min(i + kd + i3, n)));
 
                         herk(tlapack::Uplo::Upper, tlapack::Op::ConjTrans,
                              real_t(-1), work02, real_t(1), A22);
+                        std::cout << "herk( work02, A22);" << std::endl;
 
                         for (idx_t jj = 0; jj < i3; ++jj) {
                             for (idx_t ii = jj; ii < ib; ++ii) {
-                                A(i+ii, i+kd+jj) = work02(ii, jj);
+                                A02(ii, jj) = work02(ii, jj);
                             }
                         }
                     }
                 }
             }
         }
-        else { // uplo == Lower
-            for (idx_t i = 0; i < n; i += nb)
-            {
+        else {  // uplo == Lower
+            for (idx_t i = 0; i < n; i += nb) {
                 idx_t ib;
                 if (nb + i < n) {
                     ib = nb;
@@ -275,34 +266,28 @@ int pbtrf_fullaccess(uplo_t uplo,
                     }
 
                     if (i2 > 0) {
-                        auto A10 =
-                            slice(A, range(ib + i, ib + i2 + i), range(i, ib + i));
+                        auto A10 = slice(A, range(ib + i, ib + i2 + i),
+                                         range(i, ib + i));
 
                         trsm(tlapack::Side::Right, tlapack::Uplo::Lower,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, A10);
 
-
-                        auto A11 =
-                            slice(A, range(ib + i, ib + i2 + i), range(i + ib, i + ib + i2));
+                        auto A11 = slice(A, range(ib + i, ib + i2 + i),
+                                         range(i + ib, i + ib + i2));
 
                         herk(uplo, tlapack::Op::NoTrans, real_t(-1), A10,
                              real_t(1), A11);
                     }
 
                     if (i3 > 0) {
-                        auto A10 =
-                            slice(A, range(ib + i, ib + i2 + i), range(i, ib + i));
-
+                        auto A10 = slice(A, range(ib + i, ib + i2 + i),
+                                         range(i, ib + i));
 
                         auto work20 = slice(work, range(0, i3), range(0, ib));
-                        
 
                         for (idx_t jj = 0; jj < ib; jj++) {
-                            for (idx_t ii = 0;
-                                 ii < min(jj + 1,
-                                               i3);
-                                 ++ii) {
+                            for (idx_t ii = 0; ii < min(jj + 1, i3); ++ii) {
                                 work20(ii, jj) = A(i + kd + ii, jj + i);
                             }
                         }
@@ -310,23 +295,19 @@ int pbtrf_fullaccess(uplo_t uplo,
                              tlapack::Diag::NonUnit, real_t(1), A00, work20);
 
                         auto A21 = slice(A, range(kd + i, kd + i + i3),
-                                          range(i + ib, i + ib + i2));
+                                         range(i + ib, i + ib + i2));
 
                         gemm(tlapack::Op::NoTrans, tlapack::Op::ConjTrans,
                              real_t(-1), work20, A10, real_t(1), A21);
 
-                        auto A22 =
-                            slice(A, range(kd + i, kd + i + i3),
-                                  range(kd + i, kd + i + i3));
+                        auto A22 = slice(A, range(kd + i, kd + i + i3),
+                                         range(kd + i, kd + i + i3));
 
                         herk(uplo, tlapack::Op::NoTrans, real_t(-1), work20,
                              real_t(1), A22);
 
                         for (idx_t jj = 0; jj < ib; jj++) {
-                            for (idx_t ii = 0;
-                                 ii < min(jj + 1,
-                                               i3);
-                                 ++ii) {
+                            for (idx_t ii = 0; ii < min(jj + 1, i3); ++ii) {
                                 A(i + kd + ii, jj + i) = work20(ii, jj);
                             }
                         }
@@ -339,4 +320,4 @@ int pbtrf_fullaccess(uplo_t uplo,
 }
 }  // namespace tlapack
 
-#endif // TLAPACK_PBTRF_FULLACCESS_HH
+#endif  // TLAPACK_PBTRF_FULLACCESS_HH

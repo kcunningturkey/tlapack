@@ -1,6 +1,7 @@
 /// @file potrf.hpp Computes the Cholesky factorization of a Hermitian positive
 /// definite band matrix AB.
-/// @author Ella Addison-Taylor, Kyle Cunningham, Henricus Bouwmeester, University of Colorado Denver, USA
+/// @author Ella Addison-Taylor, Kyle Cunningham, Henricus Bouwmeester,
+/// University of Colorado Denver, USA
 //
 // Copyright (c) 2025, University of Colorado Denver. All rights reserved.
 //
@@ -12,12 +13,11 @@
 #define TLAPACK_PBTRF_FULLACCESS_SLICE_TRAPEZOID_HH
 
 #include "tlapack/base/utils.hpp"
+#include "tlapack/blas/gemm.hpp"
 #include "tlapack/blas/herk.hpp"
 #include "tlapack/blas/trsm.hpp"
 #include "tlapack/lapack/pbtf0.hpp"
-#include "tlapack/blas/gemm.hpp"
 #include "tlapack/lapack/potf2.hpp"
-
 
 namespace tlapack {
 /// @brief Options struct for pbtrf()
@@ -42,9 +42,11 @@ struct BlockedBandedFullCholeskyOpts : public EcOpts {
  *
  * @param[in,out] AB
  *       AB is an array, dimension (kd+1, N)
- *      On entry, the Hermitian positive definite band matrix AB of size kd+1-by-n.
+ *      On entry, the Hermitian positive definite band matrix AB of size
+ * kd+1-by-n.
  *
- *      - If uplo = Uplo::Upper, AB(i + kd - j, j) = A(i, j) for max(0,j-kd)<=i<=j
+ *      - If uplo = Uplo::Upper, AB(i + kd - j, j) = A(i, j) for
+ * max(0,j-kd)<=i<=j
  *
  *      - If uplo = Uplo::Lower, AB(i - j, j) = A(i, j) for j<=i<=min(n,j+kd+1)
  *
@@ -52,15 +54,15 @@ struct BlockedBandedFullCholeskyOpts : public EcOpts {
  *      factorization $A = U^H U$ or $A = L L^H.$
  *
  * @param[in] opts Options.
- *      Define the behavior of nb for pbtrf_legacymatrix.     
+ *      Define the behavior of nb for pbtrf_legacymatrix.
  *
  * @return 0: successful exit.
- * 
+ *
  * @return i, 0 < i <= n, if the leading minor of order i is not
  *      positive definite, and the factorization could not be completed.
- * 
+ *
  * @par Further Details
- * 
+ *
  * The band storage scheme is illustrated by the following example, when
  * N = 6, KD = 2, and UPLO = 'U':
  *
@@ -95,8 +97,8 @@ void printMatrix2(const matrix_t& A)
         for (idx_t j = 0; j < n; ++j)
             std::cout << A(i, j) << " ";
     }
+    std::cout << std::endl;
 }
-
 
 #define isSlice_2(SliceSpec) !std::is_convertible<SliceSpec, idx_t>::value
 
@@ -110,8 +112,8 @@ template <
     typename std::enable_if<isSlice_2(SliceSpecRow) && isSlice_2(SliceSpecCol),
                             int>::type = 0>
 constexpr auto slice_trapezoid(LegacyMatrix<T, idx_t, layout>& A,
-                     SliceSpecRow&& rows,
-                     SliceSpecCol&& cols) noexcept
+                               SliceSpecRow&& rows,
+                               SliceSpecCol&& cols) noexcept
 {
     idx_t ptr_offset = 0;
 
@@ -122,34 +124,55 @@ constexpr auto slice_trapezoid(LegacyMatrix<T, idx_t, layout>& A,
     idx_t ABrows_second = cols.second;
 
     if (rows.first == cols.first) {
+        std::cout << "diagonals" << std::endl;
         ptr_offset = rows.second - rows.first - 1;
         ABrows_first = nrows(A) - (rows.second - rows.first);
         ABrows_second = nrows(A);
-
     }
-    else if (cols.first + 1 == nrows(A)) {
+    else if (rows.first != cols.first && cols.first - 1 == rows.second) {
+        std::cout << "green" << std::endl;
         ABrows_first = 0;
         ABrows_second = rows.second - rows.first;
     }
     else {
+        // std::cout << "rectnagles" << std::endl;
+        // ABrows_first = cols.second - cols.first;
+        // ABrows_second =
+        //     min((rows.second - rows.first) + ABrows_first, nrows(A));
+        std::cout << "rectnagles" << std::endl;
         ABrows_first = cols.second - cols.first;
-        ABrows_second = min((rows.second - rows.first) + ABrows_first, nrows(A));
-
+        ABrows_second =
+            (rows.second - rows.first) + ABrows_first;
     }
+    // else if (cols.first + 1 == nrows(A) && ) {
+    //     std::cout << "green" << std::endl;
+    //     ABrows_first = 0;
+    //     ABrows_second = rows.second - rows.first;
+    // }
+    // else {
+    //     std::cout << "rectnagles" << std::endl;
+    //     ABrows_first = cols.second - cols.first;
+    //     ABrows_second = min((rows.second - rows.first) + ABrows_first,
+    //     nrows(A));
 
+    // }
+
+    std::cout << "range(" << ABrows_first << ", " << ABrows_second
+              << ") and range(" << ABcols_first << ", " << ABcols_second << ")"
+              << std::endl;
     return LegacyMatrix<T, idx_t, layout>(
         ABrows_second - ABrows_first, ABcols_second - ABcols_first,
-        (layout == Layout::ColMajor) ? &A.ptr[ptr_offset + ABrows_first + ABcols_first * A.ldim] 
-        : &A.ptr[(ptr_offset + ABrows_first) * A.ldim + ABcols_first],
+        (layout == Layout::ColMajor)
+            ? &A.ptr[ptr_offset + ABrows_first + ABcols_first * A.ldim]
+            : &A.ptr[(ptr_offset + ABrows_first) * A.ldim + ABcols_first],
         A.ldim - 1);
 }
 
 #undef isSlice
 
 template <TLAPACK_UPLO uplo_t, TLAPACK_MATRIX matrix_t>
-int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
-           matrix_t& A,
-           const BlockedBandedFullCholeskyOpts& opts = {})
+int pbtrf_fullaccess_slice_trapezoid(
+    uplo_t uplo, matrix_t& A, const BlockedBandedFullCholeskyOpts& opts = {})
 {
     using T = tlapack::type_t<matrix_t>;
     using real_t = tlapack::real_type<T>;
@@ -161,9 +184,9 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
     idx_t n = ncols(A);
     idx_t kd = nrows(A) - 1;
     const idx_t nb = opts.nb;
-    const idx_t zero = 0;
 
     if (nb < 1 || nb > kd) {
+        // std::cout << "HENC" << std::endl;
         return pbtf0_fullaccess(uplo, A, kd);
     }
     else {
@@ -184,22 +207,22 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
                 if (n < nb + i) {
                     ib = n - i;
                 }
-                else  
-                {
+                else {
                     ib = nb;
                 }
-
-                //works
-
-                std::cout << "ib: " << ib << std::endl;
-                auto A00 = slice_trapezoid(A, range(kd - ib + 1, kd + 1), range(i, i + ib));
-
-                // A00.ptr = &A00.ptr[ib-1];
+                std::cout << "AB = " << std::endl;
+                printMatrix2(A);
+                std::cout << "range(" << i << ", " << ib + i << "), range(" << i
+                          << ", min(" << i + ib << ", " << n << ")"
+                          << std::endl;
+                auto A00 =
+                    slice_trapezoid(A, range(i, ib + i), range(i, min(i + ib, n)));
+                std::cout << "A00 = " << std::endl;
                 printMatrix2(A00);
-                std::cout << std::endl;
-                
 
                 potf2(tlapack::Uplo::Upper, A00);
+            
+                std::cout << "potf2(tlapack::Uplo::Upper, A00);" << std::endl;///////////
 
                 if (i + ib < n) {
                     // i2 = min(kd-ib, n-i-ib)
@@ -212,37 +235,24 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
                     }
 
                     if (i2 > 0) {
-
-                        std::cout << "i2 = " << i2 << std::endl;
-
-                        //works
-                        auto A01 = slice_trapezoid(
-                            A, range(kd - ib, kd),
-                            range(i + ib, min(i + kd,
-                                                   n)));
-                        // printMatrix2(A01);
-                        // std::cout << std::endl;
+                        auto A01 = slice_trapezoid(A, range(i, ib + i),
+                                                   range(i + ib, i + ib + i2));
+                        std::cout << "A01 = " << std::endl;
+                        printMatrix2(A01);
 
                         trsm(tlapack::Side::Left, tlapack::Uplo::Upper,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, A01);
+                        std::cout << "trsm (A00, A01)" << std::endl;///////////////
 
-                             std::cout << "AB = " << std::endl;
-                             printMatrix2(A);
-
-                             std::cout << std::endl;
-                             //works
-                        auto A11 = slice_trapezoid(
-                            A, range(kd + 1 - i2, kd + 1),
-                            range(i + ib, min(i + kd,
-                                                   n)));
+                        auto A11 = slice_trapezoid(A, range(i + ib, i + kd),
+                                                   range(i + ib, i + kd));
+                        std::cout << "A11 = " << std::endl;
                         printMatrix2(A11);
-                        std::cout << std::endl;
-
 
                         herk(tlapack::Uplo::Upper, tlapack::Op::ConjTrans,
                              real_t(-1), A01, real_t(1), A11);
-
+                        std::cout << "herk (A01, A11)" << std::endl;///////////////
                     }
                     // i3 = min(ib, n-i-kd)
                     idx_t i3;
@@ -257,57 +267,70 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
                     }
 
                     if (i3 > 0) {
-                        //works
-                        auto work02 = slice_trapezoid(work, range(0, ib), range(0, i3));
+                        std::cout << "i = " << i << " i + ib = " << i + ib
+                                  << std::endl;
+                        auto A02 = slice_trapezoid(A, range(i, i + ib),
+                                                   range(i + kd, i + kd + i3));
+                        std::cout << "A02 = " << std::endl;
+                        printMatrix2(A02);
+                        auto work02 = slice(work, range(0, ib), range(0, i3));
+                        for (idx_t jj = 0; jj < i3; jj++)
+                            for (idx_t ii = jj; ii < ib; ++ii)
+                                work02(ii, jj) = A02(ii, jj);
+                        // auto work02 = slice(work, range(0, ib), range(0,
+                        // i3));
 
-                        for (idx_t jj = 0; jj < i3; jj++) {
-                            for (idx_t ii = jj; ii < ib; ++ii) {
-                                work02(ii, jj) = A(ii - jj, jj + i + kd);
-                            }
-                        }
-
+                        // for (idx_t jj = 0; jj < i3; jj++) {
+                        //     for (idx_t ii = jj; ii < ib; ++ii) {
+                        //         std::cout << "work(" << ii << ", " << jj <<
+                        //         ") = A(" << i + ii << ", " << i + kd + jj <<
+                        //         std::endl; work02(ii, jj) = A(i+ii, i+kd+jj);
+                        //     }
+                        // }
+                        std::cout << "work = " << std::endl;
+                        printMatrix2(work02);
                         trsm(tlapack::Side::Left, tlapack::Uplo::Upper,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, work02);
+                        std::cout << "trsm (A00, work02)" << std::endl;////////////////////
 
-                             //works
                         auto A12 =
-                            slice_trapezoid(A, range(kd - i2, kd),
-                                  range(i + kd,
-                                        min(i + kd + i3,
-                                                 n)));
+                            slice_trapezoid(A, range(i + ib, i + kd),
+                                            range(i + kd, min(i + kd + i3, n)));
 
-                                                 //works
-                        auto A01 = slice_trapezoid(
-                            A, range(kd - ib, kd),
-                            range(i + ib, min(i + kd,
-                                                   n)));
+                        std::cout << "A12 = rows = (" << i + ib << ", " << i + kd << ") cols = (" << i + kd << ", " << min(i + kd + i3, n) << std::endl;
+                        printMatrix2(A12);
+                        auto A01 =
+                            slice_trapezoid(A, range(i, ib + i),
+                                            range(i + ib, min(i + ib + i2, n)));
+                        std::cout << "A01 = " << std::endl;
+                        printMatrix2(A01);
 
                         gemm(tlapack::Op::ConjTrans, tlapack::Op::NoTrans,
                              real_t(-1), A01, work02, real_t(1), A12);
+                        std::cout << "gemm (A01, work02)" << std::endl;//////////////
 
                         auto A22 = slice_trapezoid(
-                            A, range(kd - i3 + 1, kd + 1),
-                            range(i + ib + i2,
-                                  min(i + 2 * ib + i2,
-                                           n)));
+                            A, range(i + kd, min(i + kd + i3, n)),
+                            range(i + kd, min(i + kd + i3, n)));
+                        std::cout << "A22 = " << std::endl;
+                        printMatrix2(A22);
 
                         herk(tlapack::Uplo::Upper, tlapack::Op::ConjTrans,
                              real_t(-1), work02, real_t(1), A22);
+                        std::cout << "herk(work02, A22)" << std::endl;///////////////
 
                         for (idx_t jj = 0; jj < i3; ++jj) {
                             for (idx_t ii = jj; ii < ib; ++ii) {
-                                A(ii - jj, jj + i + kd) = work02(ii, jj);
+                                A02(ii, jj) = work02(ii, jj);
                             }
                         }
                     }
                 }
             }
-
         }
-        else { // uplo == Lower
-            for (idx_t i = 0; i < n; i += nb)
-            {
+        else {  // uplo == Lower
+            for (idx_t i = 0; i < n; i += nb) {
                 idx_t ib;
                 if (nb + i < n) {
                     ib = nb;
@@ -316,7 +339,8 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
                     ib = n - i;
                 }
 
-                auto A00 = slice_trapezoid(A, range(0, ib), range(i, ib + i));
+                auto A00 = slice_trapezoid(A, range(i, i + ib),
+                                           range(i, min(ib + i, n)));
 
                 potf2(tlapack::Uplo::Lower, A00);
 
@@ -341,61 +365,53 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
                     }
 
                     if (i2 > 0) {
-                        auto A10 =
-                            slice_trapezoid(A, range(ib, ib + i2), range(i, ib + i));
+                        auto A10 = slice_trapezoid(
+                            A, range(ib + i, ib + i2 + i), range(i, ib + i));
 
                         trsm(tlapack::Side::Right, tlapack::Uplo::Lower,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, A10);
 
                         auto A11 =
-                            slice_trapezoid(A, range(0, i2), range(i + ib, i + ib + i2));
+                            slice_trapezoid(A, range(ib + i, ib + i2 + i),
+                                            range(i + ib, i + ib + i2));
 
                         herk(uplo, tlapack::Op::NoTrans, real_t(-1), A10,
                              real_t(1), A11);
                     }
 
                     if (i3 > 0) {
-                        auto A10 =
-                            slice_trapezoid(A, range(ib, ib + i2), range(i, ib + i));
+                        auto A10 = slice_trapezoid(
+                            A, range(ib + i, ib + i2 + i), range(i, ib + i));
 
-                        auto A20 = slice_trapezoid(A, range(kd - i3 + 1, kd + 1),
-                                          range(i, ib + i));
-
-                        auto work20 = slice_trapezoid(work, range(0, i3), range(0, ib));
+                        auto work20 =
+                            slice_trapezoid(work, range(0, i3), range(0, ib));
 
                         for (idx_t jj = 0; jj < ib; jj++) {
-                            for (idx_t ii = 0;
-                                 ii < min(jj + 1,
-                                               i3);
-                                 ++ii) {
-                                work20(ii, jj) = A(kd - jj + ii, jj + i);
+                            for (idx_t ii = 0; ii < min(jj + 1, i3); ++ii) {
+                                work20(ii, jj) = A(i + kd + ii, jj + i);
                             }
                         }
-
                         trsm(tlapack::Side::Right, uplo, tlapack::Op::ConjTrans,
                              tlapack::Diag::NonUnit, real_t(1), A00, work20);
 
-                        auto A21 = slice_trapezoid(A, range(i2, i2 + i3),
-                                          range(i + ib, i + ib + i2));
+                        auto A21 =
+                            slice_trapezoid(A, range(kd + i, kd + i + i3),
+                                            range(i + ib, i + ib + i2));
 
                         gemm(tlapack::Op::NoTrans, tlapack::Op::ConjTrans,
                              real_t(-1), work20, A10, real_t(1), A21);
 
                         auto A22 =
-                            slice_trapezoid(A, range(0, i3),
-                                  range(i + ib + i2,
-                                        i + ib + i2 + min(ib, i3)));
+                            slice_trapezoid(A, range(kd + i, kd + i + i3),
+                                            range(kd + i, kd + i + i3));
 
                         herk(uplo, tlapack::Op::NoTrans, real_t(-1), work20,
                              real_t(1), A22);
 
                         for (idx_t jj = 0; jj < ib; jj++) {
-                            for (idx_t ii = 0;
-                                 ii < min(jj + 1,
-                                               i3);
-                                 ++ii) {
-                                A(kd - jj + ii, jj + i) = work20(ii, jj);
+                            for (idx_t ii = 0; ii < min(jj + 1, i3); ++ii) {
+                                A(i + kd + ii, jj + i) = work20(ii, jj);
                             }
                         }
                     }
@@ -407,4 +423,4 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
 }
 }  // namespace tlapack
 
-#endif // TLAPACK_PBTRF_FULLACCESS_SLICE_TRAPEZOID_HH
+#endif  // TLAPACK_PBTRF_FULLACCESS_SLICE_TRAPEZOID_HH

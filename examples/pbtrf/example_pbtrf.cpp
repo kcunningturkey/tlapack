@@ -251,24 +251,24 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
         }
     }
     
-    std::cout << "A before = " << std::endl;   
-    printMatrix(A);
+    std::cout << "AB before = " << std::endl;   
+    printMatrix(AB);
     lacpy(tlapack::Uplo::General, A, A_copy);
     potrf(uplo, A_copy);
 
-    // tlapack::BlockedBandedFullCholeskyOpts opts;
-    // opts.nb = nb;
-
-    tlapack::BlockedBandedTestCholeskyOpts opts;
+    tlapack::BlockedBandedFullCholeskyOpts opts;
     opts.nb = nb;
+
+    // tlapack::BlockedBandedTestCholeskyOpts opts;
+    // opts.nb = nb;
     
-    std::cout << "\nA after = " << std::endl;
-    // pbtrf_fullaccess_slice_trapezoid(uplo, AB, opts);
-    pbtrf_fullaccess(uplo, A, kd, opts);
+    std::cout << "\nAB after = " << std::endl;
+    pbtrf_fullaccess_slice_trapezoid(uplo, AB, opts);
+    // pbtrf_fullaccess(uplo, A, kd, opts);
     // pbtf0(uplo, A);
 
 
-    printMatrix(A);
+    printMatrix(AB);
 
     // std::cout << "starting pbtf0" << std::endl;
     // if (uplo == tlapack::Uplo::Upper) {
