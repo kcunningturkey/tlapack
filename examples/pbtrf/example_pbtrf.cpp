@@ -76,8 +76,8 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
 
     // Define parameters for banded and consolidated matrices
 
-    tlapack::Uplo uplo = tlapack::Uplo::Lower;
-    // tlapack::Uplo uplo = tlapack::Uplo::Upper;
+    // tlapack::Uplo uplo = tlapack::Uplo::Lower;
+    tlapack::Uplo uplo = tlapack::Uplo::Upper;
 
     std::vector<T> data1(m * n);
     for (int i = 0; i < m * n; ++i)
