@@ -83,6 +83,20 @@ struct BlockedBandedFullCholeskyOpts : public EcOpts {
  * @ingroup variant_interface
  */
 
+template <typename matrix_t>
+void printMatrix2(const matrix_t& A)
+{
+    using idx_t = tlapack::size_type<matrix_t>;
+    const idx_t m = tlapack::nrows(A);
+    const idx_t n = tlapack::ncols(A);
+
+    for (idx_t i = 0; i < m; ++i) {
+        std::cout << std::endl;
+        for (idx_t j = 0; j < n; ++j)
+            std::cout << A(i, j) << " ";
+    }
+}
+
 
 #define isSlice_2(SliceSpec) !std::is_convertible<SliceSpec, idx_t>::value
 
@@ -99,19 +113,35 @@ constexpr auto slice_trapezoid(LegacyMatrix<T, idx_t, layout>& A,
                      SliceSpecRow&& rows,
                      SliceSpecCol&& cols) noexcept
 {
-    assert((rows.first >= 0 and (idx_t) rows.first < nrows(A)) ||
-           rows.first == rows.second);
-    assert(rows.second >= 0 and (idx_t) rows.second <= nrows(A));
-    assert(rows.first <= rows.second);
-    assert((cols.first >= 0 and (idx_t) cols.first < ncols(A)) ||
-           cols.first == cols.second);
-    assert(cols.second >= 0 and (idx_t) cols.second <= ncols(A));
-    assert(cols.first <= cols.second);
+    idx_t ptr_offset = 0;
+
+    idx_t ABcols_first = cols.first;
+    idx_t ABcols_second = cols.second;
+
+    idx_t ABrows_first;
+    idx_t ABrows_second = cols.second;
+
+    if (rows.first == cols.first) {
+        ptr_offset = rows.second - rows.first - 1;
+        ABrows_first = nrows(A) - (rows.second - rows.first);
+        ABrows_second = nrows(A);
+
+    }
+    else if (cols.first + 1 == nrows(A)) {
+        ABrows_first = 0;
+        ABrows_second = rows.second - rows.first;
+    }
+    else {
+        ABrows_first = cols.second - cols.first;
+        ABrows_second = min((rows.second - rows.first) + ABrows_first, nrows(A));
+
+    }
+
     return LegacyMatrix<T, idx_t, layout>(
-        rows.second - rows.first, cols.second - cols.first,
-        (layout == Layout::ColMajor) ? &A.ptr[rows.first + cols.first * A.ldim]
-                                     : &A.ptr[rows.first * A.ldim + cols.first],
-        A.ldim);
+        ABrows_second - ABrows_first, ABcols_second - ABcols_first,
+        (layout == Layout::ColMajor) ? &A.ptr[ptr_offset + ABrows_first + ABcols_first * A.ldim] 
+        : &A.ptr[(ptr_offset + ABrows_first) * A.ldim + ABcols_first],
+        A.ldim - 1);
 }
 
 #undef isSlice
@@ -131,9 +161,10 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
     idx_t n = ncols(A);
     idx_t kd = nrows(A) - 1;
     const idx_t nb = opts.nb;
+    const idx_t zero = 0;
 
     if (nb < 1 || nb > kd) {
-        return pbtf0(uplo, A);
+        return pbtf0_fullaccess(uplo, A, kd);
     }
     else {
         std::vector<T> work_(nb * nb);
@@ -158,9 +189,15 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
                     ib = nb;
                 }
 
-                auto A00 =
-                    slice_trapezoid(A, range(kd - ib + 1, kd + 1), range(i, i + ib));
+                //works
 
+                std::cout << "ib: " << ib << std::endl;
+                auto A00 = slice_trapezoid(A, range(kd - ib + 1, kd + 1), range(i, i + ib));
+
+                // A00.ptr = &A00.ptr[ib-1];
+                printMatrix2(A00);
+                std::cout << std::endl;
+                
 
                 potf2(tlapack::Uplo::Upper, A00);
 
@@ -176,19 +213,31 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
 
                     if (i2 > 0) {
 
+                        std::cout << "i2 = " << i2 << std::endl;
+
+                        //works
                         auto A01 = slice_trapezoid(
                             A, range(kd - ib, kd),
                             range(i + ib, min(i + kd,
                                                    n)));
+                        // printMatrix2(A01);
+                        // std::cout << std::endl;
 
                         trsm(tlapack::Side::Left, tlapack::Uplo::Upper,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, A01);
 
+                             std::cout << "AB = " << std::endl;
+                             printMatrix2(A);
+
+                             std::cout << std::endl;
+                             //works
                         auto A11 = slice_trapezoid(
                             A, range(kd + 1 - i2, kd + 1),
                             range(i + ib, min(i + kd,
                                                    n)));
+                        printMatrix2(A11);
+                        std::cout << std::endl;
 
 
                         herk(tlapack::Uplo::Upper, tlapack::Op::ConjTrans,
@@ -208,6 +257,7 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
                     }
 
                     if (i3 > 0) {
+                        //works
                         auto work02 = slice_trapezoid(work, range(0, ib), range(0, i3));
 
                         for (idx_t jj = 0; jj < i3; jj++) {
@@ -220,12 +270,14 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, work02);
 
+                             //works
                         auto A12 =
                             slice_trapezoid(A, range(kd - i2, kd),
                                   range(i + kd,
                                         min(i + kd + i3,
                                                  n)));
 
+                                                 //works
                         auto A01 = slice_trapezoid(
                             A, range(kd - ib, kd),
                             range(i + ib, min(i + kd,
@@ -298,7 +350,6 @@ int pbtrf_fullaccess_slice_trapezoid(uplo_t uplo,
 
                         auto A11 =
                             slice_trapezoid(A, range(0, i2), range(i + ib, i + ib + i2));
-                            std::cout << "done slice A11" << std::endl;
 
                         herk(uplo, tlapack::Op::NoTrans, real_t(-1), A10,
                              real_t(1), A11);

@@ -21,6 +21,21 @@
 
 
 namespace tlapack {
+
+template <typename matrix_t>
+void printMatrix3(const matrix_t& A)
+{
+    using idx_t = tlapack::size_type<matrix_t>;
+    const idx_t m = tlapack::nrows(A);
+    const idx_t n = tlapack::ncols(A);
+
+    for (idx_t i = 0; i < m; ++i) {
+        std::cout << std::endl;
+        for (idx_t j = 0; j < n; ++j)
+            std::cout << A(i, j) << " ";
+    }
+    std::cout << std::endl;
+}
 /// @brief Options struct for pbtrf()
 struct BlockedBandedTestCholeskyOpts : public EcOpts {
     constexpr BlockedBandedTestCholeskyOpts(const EcOpts& opts = {})
@@ -87,6 +102,7 @@ struct BlockedBandedTestCholeskyOpts : public EcOpts {
 template <TLAPACK_UPLO uplo_t, TLAPACK_SMATRIX matrix_t>
 int pbtrf_fullaccess(uplo_t uplo,
            matrix_t& A,
+           std::size_t& kd,
            const BlockedBandedTestCholeskyOpts& opts = {})
 {
     using T = tlapack::type_t<matrix_t>;
@@ -97,11 +113,11 @@ int pbtrf_fullaccess(uplo_t uplo,
     Create<matrix_t> new_matrix;
 
     idx_t n = ncols(A);
-    idx_t kd = nrows(A) - 1;
     const idx_t nb = opts.nb;
 
     if (nb < 1 || nb > kd) {
         return pbtf0_fullaccess(uplo, A, kd);
+        
     }
     else {
         std::vector<T> work_(nb * nb);
@@ -127,12 +143,17 @@ int pbtrf_fullaccess(uplo_t uplo,
                 }
 
                 auto A00 =
-                    slice(A, range(kd - ib + 1, kd + 1), range(i, i + ib));
+                    slice(A, range(i, ib + i), range(i, min(i + ib, n)));
+                    std::cout << "A00 = " << std::endl;
+                    printMatrix3(A00);
+                    std::cout << std::endl;
 
 
                 potf2(tlapack::Uplo::Upper, A00);
-
+                std::cout << "done potf2" << std::endl;
+                std::cout << "i + ib = " << i + ib << " and n = " << n << std::endl;
                 if (i + ib < n) {
+                    
                     // i2 = min(kd-ib, n-i-ib)
                     idx_t i2;
                     if (kd + i < n) {
@@ -144,20 +165,23 @@ int pbtrf_fullaccess(uplo_t uplo,
 
                     if (i2 > 0) {
 
+                        std::cout << "A01 = " << std::endl;
                         auto A01 = slice(
-                            A, range(kd - ib, kd),
-                            range(i + ib, min(i + kd,
+                            A, range(i, ib + i),
+                            range(i + ib, min(i + ib + i2,
                                                    n)));
+                        printMatrix3(A01);
 
                         trsm(tlapack::Side::Left, tlapack::Uplo::Upper,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, A01);
 
+                        std::cout << "A11 = " << std::endl;
                         auto A11 = slice(
-                            A, range(kd + 1 - i2, kd + 1),
+                            A, range(i + ib, i + kd),
                             range(i + ib, min(i + kd,
                                                    n)));
-
+                        printMatrix3(A11);
 
                         herk(tlapack::Uplo::Upper, tlapack::Op::ConjTrans,
                              real_t(-1), A01, real_t(1), A11);
@@ -176,50 +200,61 @@ int pbtrf_fullaccess(uplo_t uplo,
                     }
 
                     if (i3 > 0) {
+                        
                         auto work02 = slice(work, range(0, ib), range(0, i3));
 
                         for (idx_t jj = 0; jj < i3; jj++) {
                             for (idx_t ii = jj; ii < ib; ++ii) {
-                                work02(ii, jj) = A(ii - jj, jj + i + kd);
+                                std::cout << "work02(" << ii << ", " << jj << ") = A(" << ii - jj << ", " << jj + i + kd << ")" << std::endl;
+                                // work02(ii, jj) = A(ii - jj, jj + i + kd);
+                                work02(ii, jj) = A(i+ii, i+kd+jj);
                             }
                         }
 
+                        std::cout << "work = " << std::endl;
+                        printMatrix3(work02);
                         trsm(tlapack::Side::Left, tlapack::Uplo::Upper,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, work02);
 
+                        std::cout << "A12 = " << std::endl;
                         auto A12 =
-                            slice(A, range(kd - i2, kd),
+                            slice(A, range(i + ib, i + kd),
                                   range(i + kd,
                                         min(i + kd + i3,
                                                  n)));
+                        printMatrix3(A12);
 
                         auto A01 = slice(
-                            A, range(kd - ib, kd),
-                            range(i + ib, min(i + kd,
+                            A, range(i, ib + i),
+                            range(i + ib, min(i + ib + i2,
                                                    n)));
 
                         gemm(tlapack::Op::ConjTrans, tlapack::Op::NoTrans,
                              real_t(-1), A01, work02, real_t(1), A12);
 
+                             std::cout << "A22 = " << std::endl;
                         auto A22 = slice(
-                            A, range(kd - i3 + 1, kd + 1),
-                            range(i + ib + i2,
-                                  min(i + 2 * ib + i2,
-                                           n)));
+                            A, range(i + kd,
+                                        min(i + kd + i3,
+                                                 n)),
+                            range(i + kd,
+                                        min(i + kd + i3,
+                                                 n)));
+
+                        printMatrix3(A22);
 
                         herk(tlapack::Uplo::Upper, tlapack::Op::ConjTrans,
                              real_t(-1), work02, real_t(1), A22);
 
                         for (idx_t jj = 0; jj < i3; ++jj) {
                             for (idx_t ii = jj; ii < ib; ++ii) {
-                                A(ii - jj, jj + i + kd) = work02(ii, jj);
+                                A(i+ii, i+kd+jj) = work02(ii, jj);
                             }
                         }
                     }
                 }
             }
-
         }
         else { // uplo == Lower
             for (idx_t i = 0; i < n; i += nb)
@@ -232,7 +267,9 @@ int pbtrf_fullaccess(uplo_t uplo,
                     ib = n - i;
                 }
 
-                auto A00 = slice(A, range(0, ib), range(i, ib + i));
+                std::cout << "A00 = rows (" << i << ", " << ib << ") cols = (" << i << ", " << min(ib + i, n) << std::endl;
+                auto A00 = slice(A, range(i, i + ib), range(i, min(ib + i, n)));
+                printMatrix3(A00);
 
                 potf2(tlapack::Uplo::Lower, A00);
 
@@ -257,15 +294,20 @@ int pbtrf_fullaccess(uplo_t uplo,
                     }
 
                     if (i2 > 0) {
+                        std::cout << "A10 = " << std::endl;
                         auto A10 =
-                            slice(A, range(ib, ib + i2), range(i, ib + i));
+                            slice(A, range(ib + i, ib + i2 + i), range(i, ib + i));
+                        printMatrix3(A10);
 
                         trsm(tlapack::Side::Right, tlapack::Uplo::Lower,
                              tlapack::Op::ConjTrans, tlapack::Diag::NonUnit,
                              real_t(1), A00, A10);
 
+                            std::cout << "A11 = " << std::endl;
+
                         auto A11 =
-                            slice(A, range(0, i2), range(i + ib, i + ib + i2));
+                            slice(A, range(ib + i, ib + i2 + i), range(i + ib, i + ib + i2));
+                            printMatrix3(A11);
 
                         herk(uplo, tlapack::Op::NoTrans, real_t(-1), A10,
                              real_t(1), A11);
@@ -273,35 +315,39 @@ int pbtrf_fullaccess(uplo_t uplo,
 
                     if (i3 > 0) {
                         auto A10 =
-                            slice(A, range(ib, ib + i2), range(i, ib + i));
+                            slice(A, range(ib + i, ib + i2 + i), range(i, ib + i));
 
-                        auto A20 = slice(A, range(kd - i3 + 1, kd + 1),
-                                          range(i, ib + i));
+                            std::cout << "work20 = " << std::endl;
 
                         auto work20 = slice(work, range(0, i3), range(0, ib));
+                        
 
                         for (idx_t jj = 0; jj < ib; jj++) {
                             for (idx_t ii = 0;
                                  ii < min(jj + 1,
                                                i3);
                                  ++ii) {
-                                work20(ii, jj) = A(kd - jj + ii, jj + i);
+                                    std::cout << "work20(" << ii << ", " << jj << ") = A(" << i + kd + ii << ", " << jj + i << ") " << std::endl;
+                                work20(ii, jj) = A(i + kd + ii, jj + i);
                             }
                         }
-
+printMatrix3(work20);
                         trsm(tlapack::Side::Right, uplo, tlapack::Op::ConjTrans,
                              tlapack::Diag::NonUnit, real_t(1), A00, work20);
 
-                        auto A21 = slice(A, range(i2, i2 + i3),
+                             std::cout << "A21 = " << std::endl;
+                        auto A21 = slice(A, range(kd + i, kd + i + i3),
                                           range(i + ib, i + ib + i2));
+                        printMatrix3(A21);
 
                         gemm(tlapack::Op::NoTrans, tlapack::Op::ConjTrans,
                              real_t(-1), work20, A10, real_t(1), A21);
 
+                        std::cout << "A22 = " << std::endl;
                         auto A22 =
-                            slice(A, range(0, i3),
-                                  range(i + ib + i2,
-                                        i + ib + i2 + min(ib, i3)));
+                            slice(A, range(kd + i, kd + i + i3),
+                                  range(kd + i, kd + i + i3));
+                        printMatrix3(A22);
 
                         herk(uplo, tlapack::Op::NoTrans, real_t(-1), work20,
                              real_t(1), A22);
@@ -311,7 +357,7 @@ int pbtrf_fullaccess(uplo_t uplo,
                                  ii < min(jj + 1,
                                                i3);
                                  ++ii) {
-                                A(kd - jj + ii, jj + i) = work20(ii, jj);
+                                A(i + kd + ii, jj + i) = work20(ii, jj);
                             }
                         }
                     }

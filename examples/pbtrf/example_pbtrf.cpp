@@ -179,7 +179,7 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     if (uplo == tlapack::Uplo::Upper) {
         for (idx_t j = 0; j < n; j++) {
             real_t real_diag;   // Ensure diagonals are real
-            real_diag = n * n;  // Strong positive diagonal
+            real_diag = n * n + j;  // Strong positive diagonal
             A(j, j) = real_diag;
 
             for (idx_t i =
@@ -187,11 +187,11 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
                  i < j; i++) {
                 if constexpr (tlapack::is_complex<T>) {
                     A(i, j) =
-                        T(static_cast<real_t>(i + 5),
+                        T(static_cast<real_t>(i + 5 + j),
                           static_cast<real_t>(j));  // Only if T is complex
                 }
                 else {
-                    A(i, j) = static_cast<T>(i + 5);  // Only if T is real
+                    A(i, j) = static_cast<T>(i + 5 + j);  // Only if T is real
                 }
             }
         }
@@ -199,7 +199,7 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     else {  // tlapack::Uplo uplo = tlapack::Uplo::Lower;
         for (idx_t j = 0; j < n; j++) {
             real_t real_diag;   // Ensure diagonals are real
-            real_diag = n * n;  // Strong positive diagonal
+            real_diag = n * n + j;  // Strong positive diagonal
             A(j, j) = real_diag;
 
             for (idx_t i = j + 1; i < std::min(static_cast<int>(n),
@@ -207,11 +207,11 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
                  i++) {
                 if constexpr (tlapack::is_complex<T>) {
                     A(i, j) =
-                        T(static_cast<real_t>(i + 5),
+                        T(static_cast<real_t>(i + 5 + j),
                           static_cast<real_t>(j));  // Only if T is complex
                 }
                 else {
-                    A(i, j) = static_cast<T>(i + 5);  // Only if T is real
+                    A(i, j) = static_cast<T>(i + 5 + j);  // Only if T is real
                 }
             }
         }
@@ -256,12 +256,15 @@ void run(size_t m, size_t n, size_t kd, size_t nb)
     lacpy(tlapack::Uplo::General, A, A_copy);
     potrf(uplo, A_copy);
 
-    tlapack::BlockedBandedCholeskyOpts opts;
+    // tlapack::BlockedBandedFullCholeskyOpts opts;
+    // opts.nb = nb;
+
+    tlapack::BlockedBandedTestCholeskyOpts opts;
     opts.nb = nb;
     
     std::cout << "\nA after = " << std::endl;
-    // pbtrf_fullaccess_slice_trapezoid(uplo, A, opts);
-    pbtrf_fullaccess(uplo, A, opts);
+    // pbtrf_fullaccess_slice_trapezoid(uplo, AB, opts);
+    pbtrf_fullaccess(uplo, A, kd, opts);
     // pbtf0(uplo, A);
 
 
