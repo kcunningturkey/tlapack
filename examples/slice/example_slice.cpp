@@ -1,5 +1,5 @@
 /// @file example_pbtrf.cpp
-/// @author L. Carlos Gutierrez, Kyle Cunningham, Henricus Bouwmeester, Ella Addison-Taylor
+/// @author Kyle Cunningham, Henricus Bouwmeester, Ella Addison-Taylor
 /// University of Colorado Denver, USA
 //
 // Copyright (c) 2025, University of Colorado Denver. All rights reserved.
@@ -134,6 +134,31 @@ constexpr auto slice_ABm1(LegacyMatrix<T, idx_t, layout>& A,
 
 #undef isSlice_ABm1
 
+#define isSlice_ABm1_Lower(SliceSpec) !std::is_convertible<SliceSpec, idx_t>::value
+
+
+template <
+    typename T,
+    class idx_t,
+    Layout layout,
+    class SliceSpecRow,
+    class SliceSpecCol,
+    typename std::enable_if<isSlice_ABm1_Lower(SliceSpecRow) && isSlice_ABm1_Lower(SliceSpecCol),
+                            int>::type = 0>
+constexpr auto slice_ABm1_Lower(LegacyMatrix<T, idx_t, layout>& A,
+                     SliceSpecRow&& rows,
+                     SliceSpecCol&& cols) noexcept
+{
+    idx_t ptr_offset = 0; //A.ldim - 1;
+    return LegacyMatrix<T, idx_t, layout>(
+        rows.second - rows.first, cols.second - cols.first + 1,
+        (layout == Layout::ColMajor) ? &A.ptr[ptr_offset + rows.first + cols.first * A.ldim]
+                                     : &A.ptr[(ptr_offset + rows.first) * A.ldim + cols.first],
+        A.ldim-1);
+}
+
+#undef isSlice_ABm1_Lower
+
 //------------------------------------------------------------------------------
 template <typename T>
 void run(size_t m, size_t n, size_t kd)
@@ -143,7 +168,8 @@ void run(size_t m, size_t n, size_t kd)
     using idx_t = tlapack::size_type<matrix_t>;
     using range = std::pair<idx_t, idx_t>;
 
-    tlapack::Uplo uplo = tlapack::Uplo::Upper;
+    // tlapack::Uplo uplo = tlapack::Uplo::Upper;
+    tlapack::Uplo uplo = tlapack::Uplo::Lower;
 
     tlapack::Create<matrix_t> new_matrix;
 
@@ -179,7 +205,25 @@ void run(size_t m, size_t n, size_t kd)
             }
         }
     }
-    auto ABm1 = slice_ABm1(AB, range(0, kd), range(0, m));
+    else {
+        for (idx_t j = 0; j < n; j++) {
+            for (idx_t i = 0; i < j; i++) {
+                A(i, j) = static_cast<real_t>(0);
+            }
+        }
+        for (idx_t j = kd + 1; j < n; j++) {
+            for (idx_t i = 0; i < static_cast<int>(j - kd); i++)
+                A(j, i) = static_cast<real_t>(0);
+        }
+        for (idx_t j = 0; j < n; j++) {
+            for (idx_t i = j; i < std::min(static_cast<int>(n),
+                                           static_cast<int>(j + kd + 1));
+                 i++) {
+                AB(i - j, j) = A(i, j);
+            }
+        }
+    }
+    auto ABm1 = slice_ABm1_Lower(AB, range(0, kd), range(0, m));
     // ABm1.ldim -= 1;
     // if (uplo == tlapack::Uplo::Upper) {
     //     for (idx_t j = 0; j < n; j++) {
@@ -201,25 +245,34 @@ void run(size_t m, size_t n, size_t kd)
     printMatrix(ABm1);
 
     auto ABm100 = urinitialsorwhatevauwant(ABm1, range(0, 4), range(0, 4));
-    auto A00 = urinitialsorwhatevauwant(A, range(0, 4), range(0, 4));
+    auto A00 = slice(A, range(0, 4), range(0, 4));
     std::cout << "ABm100 = " << std::endl;
     printMatrix(ABm100);
     printMatrix(A00);
-    auto ABm101 = urinitialsorwhatevauwant(ABm1, range(0, 4), range(5, 8));
-    auto A01 = urinitialsorwhatevauwant(A, range(0, 4), range(5, 8));
+    auto ABm101 = urinitialsorwhatevauwant(ABm1, range(5, 8), range(0, 4));
+    auto A01 = slice(A, range(5, 8), range(0, 4));
     std::cout << "ABm101 = " << std::endl;
     printMatrix(ABm101);
     printMatrix(A01);
-    auto ABm1_JL = urinitialsorwhatevauwant(ABm1, range(2, 6), range(6, 8));
-    auto A_JL = urinitialsorwhatevauwant(A, range(2, 6), range(6, 8));
-    std::cout << "ABm1_JL = " << std::endl;
-    printMatrix(ABm1_JL);
-    printMatrix(A_JL);
-    auto ABm1_SH = urinitialsorwhatevauwant(ABm1, range(6, 8), range(6, 9));
-    auto A_SH = urinitialsorwhatevauwant(A, range(6, 8), range(6, 9));
+    // auto ABm1_JL = urinitialsorwhatevauwant(ABm1, range(2, 6), range(6, 8));
+    // auto A_JL = urinitialsorwhatevauwant(A, range(2, 6), range(6, 8));
+    // std::cout << "ABm1_JL = " << std::endl;
+    // printMatrix(ABm1_JL);
+    // printMatrix(A_JL);
+    auto ABm1_SH = urinitialsorwhatevauwant(ABm1, range(6, 9), range(6, 8));
+    auto A_SH = slice(A, range(6, 9), range(6, 8));
     std::cout << "ABm1_SH = " << std::endl;
     printMatrix(ABm1_SH);
     printMatrix(A_SH);
+    // auto ABm1_H = urinitialsorwhatevauwant(ABm1, range(7, 11), range(7, 11));
+    // auto A_S = urinitialsorwhatevauwant(A, range(7, 11), range(7, 11));
+    // auto A_H = slice(A, range(7, 11), range(7, 11));
+    // std::cout << "ABm1_H = " << std::endl;
+    // printMatrix(ABm1_H);
+    // std::cout << "A_S = " << std::endl;
+    // printMatrix(A_S);
+    // std::cout << "A_H = " << std::endl;
+    // printMatrix(A_H);
 }
 
 //------------------------------------------------------------------------------
@@ -231,7 +284,7 @@ int main(int argc, char** argv)
 
     std::cout << "Hello World!" << std::endl;
 
-    idx_t m = 11;
+    idx_t m = 13;
     idx_t n = m;
     idx_t kd = 7;
 
