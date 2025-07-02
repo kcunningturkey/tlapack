@@ -42,6 +42,15 @@ add_subdirectory( pbtrf )
         && echo ""
     )
 
+  add_subdirectory( slice )
+    add_custom_command(
+      OUTPUT run-all-examples-cmd APPEND
+      COMMAND
+        echo "- example_slice ----------------" &&
+        "${CMAKE_CURRENT_BINARY_DIR}/slice/example_slice${CMAKE_EXECUTABLE_SUFFIX}"
+        && echo ""
+    )
+
 # add the eigenvalues example
 add_subdirectory( eigenvalues )
 add_custom_command(
