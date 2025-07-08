@@ -90,8 +90,13 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
         }
     }
 
-    if (transA == tlapack::Op::NoTrans) {  //------------------------------NoTrans------------------------------------
-        if (uplo == tlapack::Uplo::Lower) {//-------------------------------Lower-------------------------------------
+    if (transA ==
+        tlapack::Op::
+            NoTrans)  //---------------------------------NoTrans------------------------------------
+    {
+        if (uplo ==
+            tlapack::Uplo::
+                Lower) {  //-------------------------------Lower-------------------------------------
             // Fill the lower part of A
             for (idx_t i = 0; i < n; i++) {
                 for (idx_t j = 0; j < i + 1; j++) {
@@ -125,7 +130,8 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
             }
 
             // Ensure the B is in the column space of A
-            // trmm(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit, real_t(1),
+            // trmm(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit,
+            // real_t(1),
             //      A, B);
 
             std::vector<T> X_;
@@ -135,12 +141,11 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
             real_t normA = lange(Norm::Fro, A);
             real_t normB = lange(Norm::Fro, B);
 
-            trsm_tri(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit, A, X);
+            trsm_tri(sideA, uplo, transA, diagA, A, X);
             // trsm_tri(sideA, uplo, transA, diagA, A, X);
 
             // Check
-            trmm(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit, real_t(1),
-                 A, X);
+            trmm(sideA, uplo, transA, diagA, real_t(1), A, X);
 
             for (idx_t i = 0; i < n; i++) {
                 for (idx_t j = 0; j < n; j++) {
@@ -151,9 +156,10 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
             real_t normX = lange(Norm::Fro, X);
 
             // std::cout << "Norm = " << normB / normB_orig << std::endl;
-            std::cout << "Norm = " << normX / (normB + normA * normX) << std::endl;  // HENC: Is this correct?
+            std::cout << "Norm = " << normX / (normB + normA * normX)
+                      << std::endl;  // HENC: Is this correct?
         }
-        else { //-----------------------------------------------------------Upper-------------------------------------
+        else {  //-----------------------------------------------------------Upper-------------------------------------
             // Fill the Upper part of A
             for (idx_t i = 0; i < n; i++) {
                 for (idx_t j = i; j < n; j++) {
@@ -187,9 +193,9 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
             }
 
             // Ensure the B is in the column space of A
-            // trmm(Side::Left, Uplo::Upper, Op::NoTrans, Diag::NonUnit, real_t(1),
+            // trmm(Side::Left, Uplo::Upper, Op::NoTrans, Diag::NonUnit,
+            // real_t(1),
             //      A, B);
-
 
             // // Fill A with DEADBEEF
             // for (idx_t i = 0; i < n; i++) {
@@ -219,7 +225,7 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
 
             std::vector<T> X_;
             auto X = new_matrix(X_, n, n);
-            lacpy(uplo,B, X);
+            lacpy(uplo, B, X);
 
             real_t normA = lange(Norm::Fro, A);
             real_t normB = lange(Norm::Fro, B);
@@ -227,7 +233,7 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
             trsm_tri(sideA, uplo, transA, diagA, A, X);
 
             // Check
-            trmm(Side::Left, Uplo::Upper, Op::NoTrans, Diag::NonUnit, real_t(1),
+            trmm(sideA, uplo, transA, diagA, real_t(1),
                  A, X);
 
             for (idx_t i = 0; i < n; i++) {
@@ -238,12 +244,18 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
 
             real_t normX = lange(Norm::Fro, X);
 
-            std::cout << "Norm = " << normX / (normB + normA * normX) << std::endl;  // HENC: Is this correct?
+            std::cout << "Norm = " << normX / (normB + normA * normX)
+                      << std::endl;  // HENC: Is this correct?
         }
     }
-    else if (transA == tlapack::Op::Trans) //-------------------------------Trans-------------------------------------
-    {   
-    if (uplo == tlapack::Uplo::Lower) {//-------------------------------Lower-------------------------------------
+    else if (
+        transA ==
+        tlapack::Op::
+            Trans)  //-------------------------------Trans-------------------------------------
+    {
+        if (uplo ==
+            tlapack::Uplo::
+                Lower) {  //-----------------------------------Lower-------------------------------------
             // Fill the Upper part of A
             for (idx_t i = 0; i < n; i++) {
                 for (idx_t j = i; j < n; j++) {
@@ -277,7 +289,8 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
             }
 
             // Ensure the B is in the column space of A
-            // trmm(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit, real_t(1),
+            // trmm(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit,
+            // real_t(1),
             //      A, B);
 
             std::vector<T> X_;
@@ -287,12 +300,20 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
             real_t normA = lange(Norm::Fro, A);
             real_t normB = lange(Norm::Fro, B);
 
-            // trsm_tri(Side::Left, Uplo::Upper, Op::Trans, Diag::NonUnit, A, X);
+            // std::cout << sideA << "," << uplo << "," << transA << "," << diagA << std::endl;
+            // trsm_tri(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit, A, X);
             trsm_tri(sideA, uplo, transA, diagA, A, X);
 
+            
+
+
             // Check
-            trmm(Side::Left, Uplo::Upper, Op::Trans, Diag::NonUnit, real_t(1),
-                 A, X);
+            // std::cout << sideA << "," << uplo << "," << transA << "," << diagA << std::endl;
+            // trmm(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit, real_t(1), A, X);
+            
+            trmm(sideA, uplo, transA, diagA, real_t(1), A, X);
+            // std::cout << sideA << "," << uplo << "," << transA << "," << diagA << std::endl;
+
 
             for (idx_t i = 0; i < n; i++) {
                 for (idx_t j = 0; j < n; j++) {
@@ -303,12 +324,235 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
             real_t normX = lange(Norm::Fro, X);
 
             // std::cout << "Norm = " << normB / normB_orig << std::endl;
-            std::cout << "Norm = " << normX / (normB + normA * normX) << std::endl;  // HENC: Is this correct?
+            std::cout << "Norm = " << normX / (normB + normA * normX)
+                      << std::endl;  // HENC: Is this correct?
+            // std::cout << sideA << "," << uplo << "," << transA << "," << diagA << std::endl;
+
+        }
+        else {  //--------------------------------------------------------------Upper-------------------------------------
+            // Fill the Lower part of A
+            for (idx_t i = 0; i < n; i++) {
+                for (idx_t j = 0; j < i + 1; j++) {
+                    if constexpr (tlapack::is_complex<T>) {
+                        A(i, j) = T(static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX),
+                                    static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX));
+                    }
+                    else {
+                        A(i, j) = T(static_cast<real_t>(rand()) /
+                                    static_cast<real_t>(RAND_MAX));
+                    }
+                }
+            }
+
+            // Fill the upper part of B
+            for (idx_t i = 0; i < n; i++) {
+                for (idx_t j = i; j < n; j++) {
+                    if constexpr (tlapack::is_complex<T>) {
+                        B(i, j) = T(static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX),
+                                    static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX));
+                    }
+                    else {
+                        B(i, j) = T(static_cast<real_t>(rand()) /
+                                    static_cast<real_t>(RAND_MAX));
+                    }
+                }
+            }
+
+            std::vector<T> X_;
+            auto X = new_matrix(X_, n, n);
+            lacpy(uplo, B, X);
+
+            real_t normA = lange(Norm::Fro, A);
+            real_t normB = lange(Norm::Fro, B);
+
+            trsm_tri(sideA, uplo, transA, diagA, A, X);
+
+            // printf("A = ");
+            // printMatrix(A);
+            // printf("X = ");
+            // printMatrix(X);
+            // printf("B = ");
+            // printMatrix(B);
+
+            // Check
+            std::cout << sideA << "," << uplo << "," << transA << "," << diagA << std::endl;
+            trmm(sideA, uplo, transA, diagA, real_t(1), A, X);
+
+            // printf("X = ");
+            // printMatrix(X);
+
+            for (idx_t i = 0; i < n; i++) {
+                for (idx_t j = 0; j < n; j++) {
+                    X(i, j) -= B(i, j);
+                }
+            }
+
+            real_t normX = lange(Norm::Fro, X);
+
+            std::cout << "Norm = " << normX / (normB + normA * normX)
+                      << std::endl;  // HENC: Is this correct?
         }
     }
     else  //--------------------------------------------------------------ConjTrans-----------------------------------
     {
-    return;
+        if (uplo ==
+            tlapack::Uplo::
+                Lower) {  //-------------------------------Lower-------------------------------------
+            // Fill the Upper part of A
+            for (idx_t i = 0; i < n; i++) {
+                for (idx_t j = i; j < n; j++) {
+                    if constexpr (tlapack::is_complex<T>) {
+                        A(i, j) = T(static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX),
+                                    static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX));
+                    }
+                    else {
+                        A(i, j) = T(static_cast<real_t>(rand()) /
+                                    static_cast<real_t>(RAND_MAX));
+                    }
+                }
+            }
+
+            // Fill the lower part of B
+            for (idx_t i = 0; i < n; i++) {
+                for (idx_t j = 0; j < i + 1; j++) {
+                    if constexpr (tlapack::is_complex<T>) {
+                        B(i, j) = T(static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX),
+                                    static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX));
+                    }
+                    else {
+                        B(i, j) = T(static_cast<real_t>(rand()) /
+                                    static_cast<real_t>(RAND_MAX));
+                    }
+                }
+            }
+
+            // Ensure the B is in the column space of A
+            // trmm(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit,
+            // real_t(1),
+            //      A, B);
+
+            std::vector<T> X_;
+            auto X = new_matrix(X_, n, n);
+            lacpy(uplo, B, X);
+
+            real_t normA = lange(Norm::Fro, A);
+            real_t normB = lange(Norm::Fro, B);
+
+            // printf("A = ");
+            // printMatrix(A);
+
+            // printf("X = ");
+            // printMatrix(X);
+
+            // printf("B = ");
+            // printMatrix(B);
+
+            // trsm_tri(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit, A,
+            // X);
+            std::cout << sideA << ", " << uplo << ", " << transA << std::endl;
+            trsm_tri(sideA, uplo, transA, diagA, A, X);
+
+            // Check
+            // trmm(Side::Left, Uplo::Lower, Op::NoTrans, Diag::NonUnit,
+            // real_t(1),
+            //      A, X);
+            trmm(sideA, uplo, transA, diagA, real_t(1), A, X);
+
+            // printf("X = ");
+            // printMatrix(X);
+
+            // printf("B = ");
+            // printMatrix(B);
+
+            for (idx_t i = 0; i < n; i++) {
+                for (idx_t j = 0; j < n; j++) {
+                    X(i, j) -= B(i, j);
+                }
+            }
+
+            real_t normX = lange(Norm::Fro, X);
+
+            // std::cout << "Norm = " << normB / normB_orig << std::endl;
+            std::cout << "Norm = " << normX / (normB + normA * normX)
+                      << std::endl;  // HENC: Is this correct?
+        }
+
+        else {  //-----------------------------------------------------------Upper-------------------------------------
+
+            // Fill the Lower part of A
+            for (idx_t i = 0; i < n; i++) {
+                for (idx_t j = 0; j < i + 1; j++) {
+                    if constexpr (tlapack::is_complex<T>) {
+                        A(i, j) = T(static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX),
+                                    static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX));
+                    }
+                    else {
+                        A(i, j) = T(static_cast<real_t>(rand()) /
+                                    static_cast<real_t>(RAND_MAX));
+                    }
+                }
+            }
+
+            // Fill the upper part of B
+            for (idx_t i = 0; i < n; i++) {
+                for (idx_t j = i; j < n; j++) {
+                    if constexpr (tlapack::is_complex<T>) {
+                        B(i, j) = T(static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX),
+                                    static_cast<real_t>(rand()) /
+                                        static_cast<real_t>(RAND_MAX));
+                    }
+                    else {
+                        B(i, j) = T(static_cast<real_t>(rand()) /
+                                    static_cast<real_t>(RAND_MAX));
+                    }
+                }
+            }
+
+            std::vector<T> X_;
+            auto X = new_matrix(X_, n, n);
+            lacpy(uplo, B, X);
+
+            real_t normA = lange(Norm::Fro, A);
+            real_t normB = lange(Norm::Fro, B);
+
+            // printf("A = ");
+            // printMatrix(A);
+
+            std::cout << sideA << ", " << uplo << ", " << transA << std::endl;
+
+            trsm_tri(sideA, uplo, transA, diagA, A, X);
+
+            // printf("X = ");
+            // printMatrix(X);
+
+            // printf("B = ");
+            // printMatrix(B);
+
+            // Check
+            trmm(sideA, uplo, transA, diagA, real_t(1), A, X);
+
+            for (idx_t i = 0; i < n; i++) {
+                for (idx_t j = 0; j < n; j++) {
+                    X(i, j) -= B(i, j);
+                }
+            }
+
+            real_t normX = lange(Norm::Fro, X);
+
+            std::cout << "Norm = " << normX / (normB + normA * normX)
+                      << std::endl;  // HENC: Is this correct?
+        }
     }
 }
 
@@ -323,20 +567,19 @@ int main(int argc, char** argv)
     tlapack::Uplo uplo;
     tlapack::Diag diagA;
     tlapack::Side sideA;
-    tlapack::Op transA; 
+    tlapack::Op transA;
 
-    uplo = tlapack::Uplo::Upper;
-
-    transA = tlapack::Op::NoTrans;
+    // transA = tlapack::Op::NoTrans;
     // transA = tlapack::Op::Trans;
-    // transA = tlapack::Op::ConjTrans;
+    transA = tlapack::Op::ConjTrans;
 
-    sideA = tlapack::Side::Left;
     // sideA = tlapack::Side::Left;
+    sideA = tlapack::Side::Right;
 
     diagA = tlapack::Diag::NonUnit;
     // diagA = tlapack::Diag::Unit;
 
+    uplo = tlapack::Uplo::Upper;
 
     printf("--------Upper--------\n");
     printf("run< float  >( %d, %d )\n", static_cast<int>(n),
@@ -365,10 +608,18 @@ int main(int argc, char** argv)
     printf("-----------------------\n");
 
     //-------------------------------------------------------------------Lower---------------------------------------------
+    // // transA = tlapack::Op::NoTrans;
+    // // transA = tlapack::Op::Trans;
+    // transA = tlapack::Op::ConjTrans;
 
+    // sideA = tlapack::Side::Left;
+    // // sideA = tlapack::Side::Right;
+
+    // diagA = tlapack::Diag::NonUnit;
+    // // diagA = tlapack::Diag::Unit;
     std::cout << std::endl;
     uplo = tlapack::Uplo::Lower;
-    
+
     printf("--------Lower--------\n");
 
     printf("run< float  >( %d, %d )\n", static_cast<int>(n),
