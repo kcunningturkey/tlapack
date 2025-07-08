@@ -56,35 +56,67 @@ void trmm_out(Side side,
     using real_t = real_type<T>;
 
     if (transB == Op::NoTrans) {
-        idx_t n = ncols(B);
-        idx_t m = nrows(B);
-        idx_t n0 = n / 2;
-        if (n == 1) {
-            // Switched n and m - KYLE
-            for (idx_t i = 0; i < m; ++i) {
-                for (idx_t j = 0; j < n; ++j) {
-                    C(i, j) = alpha * B(i, j) * A(0, 0) + beta * C(i, j);
+        if (uplo == Uplo::Upper) {
+            idx_t n = ncols(B);
+            idx_t m = nrows(B);
+            idx_t n0 = n / 2;
+            if (n == 1) {
+                for (idx_t i = 0; i < m; ++i) {
+                    for (idx_t j = 0; j < n; ++j) {
+                        C(i, j) = alpha * B(i, j) * A(0, 0) + beta * C(i, j);
+                    }
                 }
+            }
+            else {
+                auto C0 = slice(C, range(0, m), range(0, n0));
+                auto C1 = slice(C, range(0, m), range(n0, n));
+
+                auto A00 = slice(A, range(0, n0), range(0, n0));
+                auto A01 = slice(A, range(0, n0), range(n0, n));
+                auto A11 = slice(A, range(n0, n), range(n0, n));
+
+                auto B0 = slice(B, range(0, m), range(0, n0));
+                auto B1 = slice(B, range(0, m), range(n0, n));
+
+                trmm_out(side, uplo, transA, diag, transB, alpha, A00, B0, beta,
+                         C0);
+
+                gemm(Op::NoTrans, Op::NoTrans, alpha, B0, A01, beta, C1);
+
+                trmm_out(side, uplo, transA, diag, transB, alpha, A11, B1,
+                         real_t(1), C1);
             }
         }
         else {
-            auto C0 = slice(C, range(0, m), range(0, n0));
-            auto C1 = slice(C, range(0, m), range(n0, n));
+            idx_t n = ncols(B);
+            idx_t m = nrows(B);
+            idx_t n0 = n / 2;
+            if (n == 1) {
+                for (idx_t i = 0; i < m; ++i) {
+                    for (idx_t j = 0; j < n; ++j) {
+                        C(i, j) = alpha * B(i, j) * A(0, 0) + beta * C(i, j);
+                    }
+                }
+            }
+            else {
+                auto C0 = slice(C, range(0, m), range(0, n0));
+                auto C1 = slice(C, range(0, m), range(n0, n));
 
-            auto A00 = slice(A, range(0, n0), range(0, n0));
-            auto A10 = slice(A, range(n0, n), range(0, n0));
-            auto A11 = slice(A, range(n0, n), range(n0, n));
+                auto A00 = slice(A, range(0, n0), range(0, n0));
+                auto A10 = slice(A, range(n0, n), range(0, n0));
+                auto A11 = slice(A, range(n0, n), range(n0, n));
 
-            auto B0 = slice(B, range(0, m), range(0, n0));
-            auto B1 = slice(B, range(0, m), range(n0, n));
+                auto B0 = slice(B, range(0, m), range(0, n0));
+                auto B1 = slice(B, range(0, m), range(n0, n));
 
-            trmm_out(side, uplo, transA, diag, transB, alpha, A11, B1, beta,
-                     C1);
+                trmm_out(side, uplo, transA, diag, transB, alpha, A11, B1, beta,
+                         C1);
 
-            gemm(Op::NoTrans, Op::NoTrans, alpha, B1, A10, beta, C0);
+                gemm(Op::NoTrans, Op::NoTrans, alpha, B1, A10, beta, C0);
 
-            trmm_out(side, uplo, transA, diag, transB, alpha, A00, B0,
-                     real_t(1), C0);
+                trmm_out(side, uplo, transA, diag, transB, alpha, A00, B0,
+                         real_t(1), C0);
+            }
         }
     }
     else {

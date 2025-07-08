@@ -51,6 +51,15 @@ add_subdirectory( pbtrf )
         && echo ""
     )
 
+    add_subdirectory( trsm_tri )
+    add_custom_command(
+      OUTPUT run-all-examples-cmd APPEND
+      COMMAND
+        echo "- example_trsm_tri ----------------" &&
+        "${CMAKE_CURRENT_BINARY_DIR}/trsm_tri/example_trsm_tri${CMAKE_EXECUTABLE_SUFFIX}"
+        && echo ""
+    )
+
 # add the eigenvalues example
 add_subdirectory( eigenvalues )
 add_custom_command(
