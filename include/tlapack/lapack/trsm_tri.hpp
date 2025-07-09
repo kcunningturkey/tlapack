@@ -15,7 +15,7 @@
 #include <iomanip>
 
 namespace tlapack {
-
+    
 template <typename matrix_t>
 void printMatrix2(const matrix_t& A)
 {
@@ -26,7 +26,7 @@ void printMatrix2(const matrix_t& A)
     for (idx_t i = 0; i < m; ++i) {
         std::cout << std::endl;
         for (idx_t j = 0; j < n; ++j)
-            std::cout << A(i, j) << std::setw(11) << " ";
+            std::cout << std::setw(11) << A(i, j) << " ";
     }
     std::cout << std::endl;
 }
@@ -44,10 +44,16 @@ void trsm_tri(Side sideA,
     using range = std::pair<idx_t, idx_t>;
     using real_t = tlapack::real_type<T>;
 
-    idx_t n = nrows(A);
+    tlapack::Uplo uploA;
+    if (transA != tlapack::Op::NoTrans)
+        uploA = (uploB == tlapack::Uplo::Upper) ? tlapack::Uplo::Lower : tlapack::Uplo::Upper;
+    else
+        uploA = uploB;
 
+    idx_t n = nrows(A);
+    
     if (n == 1) {
-        if (transA == tlapack::Op::ConjTrans)
+        if (transA == tlapack::Op::ConjTrans) 
             B(0, 0) /= conj(A(0, 0));
         else
             B(0, 0) /= A(0, 0);
@@ -62,45 +68,42 @@ void trsm_tri(Side sideA,
     auto A11 = slice(A, range(nd, n), range(nd, n));
 
     auto B00 = slice(B, range(0, nd), range(0, nd));
-    auto B01 = slice(B, range(0, nd), range(nd, n));
+    auto B01 = slice(B, range(0, nd), range(nd, n));    
     auto B10 = slice(B, range(nd, n), range(0, nd));
     auto B11 = slice(B, range(nd, n), range(nd, n));
 
+    // Create workspace
     tlapack::Create<matrixB_t> new_matrix;
     std::vector<T> work_;
     auto work = new_matrix(work_, n, n);
     auto work00 = slice(work, range(0, nd), range(0, nd));
     auto work11 = slice(work, range(nd, n), range(nd, n));
 
-    tlapack::Uplo uploA;
-    if (transA != Op::NoTrans)
-        uploA = (uploB == Uplo::Lower) ? Uplo::Upper : Uplo::Lower;
 
     if (sideA == tlapack::Side::Left) {
         if (transA == tlapack::Op::NoTrans) {
             // Form: B := alpha*inv(A)*B
             if (uploB == tlapack::Uplo::Upper) {
-                // Left, NoTrans, Upper, Diag
-                trsm_tri(sideA, uploB, transA, diagA, A11, B11);
 
+                // Left, NoTrans, Upper, Diag
                 trsm_tri(sideA, uploB, transA, diagA, A00, B00);
+
+                trsm_tri(sideA, uploB, transA, diagA, A11, B11);
 
                 // NEED TRMM_outofplace from Ella
                 idx_t wm = nrows(B11);
                 idx_t wn = ncols(B11);
-                for (idx_t j = 0; j < wn; j++)
-                    for (idx_t i = 0; i < j + 1; i++)
+                for (idx_t j = 0; j < wn; ++j)
+                    for (idx_t i = 0; i < j + 1; ++i)
                         work11(i, j) = B11(i, j);
 
-                // gemm(Op::NoTrans, Op::NoTrans, real_t(-1), A01, B11,
-                // real_t(1), B01);
-                gemm(transA, Op::NoTrans, real_t(-1), A01, work11,
-                     real_t(1), B01);
+                gemm(transA, Op::NoTrans, real_t(-1), A01, work11, real_t(1), B01);
 
                 // trmm_out(Side::Right, uplo, Op::NoTrans, diagA,
                 //          transA, real_t(-1), B11, A01, real_t(1), B01);
 
                 trsm(sideA, uploA, transA, diagA, real_t(1), A00, B01);
+
                 return;
             }
             else {
@@ -112,17 +115,13 @@ void trsm_tri(Side sideA,
                 // NEED TRMM_outofplace from Ella
                 idx_t wm = nrows(B00);
                 idx_t wn = ncols(B00);
-                for (idx_t j = 0; j < wn; j++)
-                    for (idx_t i = j; i < wm; i++)
+                for (idx_t j = 0; j < wn; ++j)
+                    for (idx_t i = j; i < wm; ++i)
                         work00(i, j) = B00(i, j);
 
-                // gemm(Op::NoTrans, Op::NoTrans, real_t(-1), A10, B00,
-                // real_t(1), B10);
-                gemm(transA, Op::NoTrans, real_t(-1), A10, work00,
-                     real_t(1), B10);
+                gemm(transA, Op::NoTrans, real_t(-1), A10, work00, real_t(1), B10);
 
-                // trmm_out(Side::Right, uplo, Op::NoTrans, Diag::NonUnit,
-                // transA,
+                // trmm_out(Side::Right, uplo, Op::NoTrans, Diag::NonUnit, transA,
                 //          real_t(-1), B00, A10, real_t(1), B10);
 
                 trsm(sideA, uploA, transA, diagA, real_t(1), A11, B10);
@@ -133,7 +132,6 @@ void trsm_tri(Side sideA,
         else {
             // Form: B := alpha*inv(A**T)*B
             // Form: B := alpha*inv(A**H)*B
-
             if (uploB == tlapack::Uplo::Upper) {
                 // Left, Trans or ConjTrans, Upper, Diag
 
@@ -144,36 +142,36 @@ void trsm_tri(Side sideA,
                 // NEED TRMM_outofplace from Ella
                 idx_t wm = nrows(B11);
                 idx_t wn = ncols(B11);
-                for (idx_t j = 0; j < wn; j++)
-                    for (idx_t i = 0; i < j + 1; i++)
+                for (idx_t j = 0; j < wn; ++j)
+                    for (idx_t i = 0; i < j + 1; ++i)
                         work11(i, j) = B11(i, j);
 
-                gemm(Op::NoTrans, Op::NoTrans, real_t(-1), A01, work11, real_t(1),
-                     B01);
+                gemm(transA, Op::NoTrans, real_t(-1), A10, work11, real_t(1), B01);
+                //gemm(Op::NoTrans, Op::NoTrans, real_t(-1), A01, B11, real_t(1), B01);
 
-                // trmm_out(Side::Right, Uplo::Upper, Op::NoTrans,
-                // Diag::NonUnit,
+                // trmm_out(Side::Right, Uplo::Upper, Op::NoTrans, Diag::NonUnit,
                 //          transA, real_t(-1), B11, A10, real_t(1), B01);
 
                 trsm(sideA, uploA, transA, diagA, real_t(1), A00, B01);
-
+                
                 return;
             }
             else {
                 // Left, Trans or ConjTrans, Lower, Diag
 
                 trsm_tri(sideA, uploB, transA, diagA, A00, B00);
-
+                
                 trsm_tri(sideA, uploB, transA, diagA, A11, B11);
 
+                // NEED TRMM_outofplace from Ella
                 idx_t wm = nrows(B00);
                 idx_t wn = ncols(B00);
-                for (idx_t j = 0; j < wn; j++)
-                    for (idx_t i = j; i < wm; i++)
+                for (idx_t j = 0; j < wn; ++j)
+                    for (idx_t i = j; i < wm; ++i)
                         work00(i, j) = B00(i, j);
 
-                gemm(Op::Trans, Op::NoTrans, real_t(-1), A01, work00, real_t(1),
-                     B10);
+                gemm(transA, Op::NoTrans, real_t(-1), A01, work00, real_t(1), B10);
+                //gemm(Op::NoTrans, Op::NoTrans, real_t(-1), A10, B00, real_t(1), B10);
 
                 trsm(sideA, uploA, transA, diagA, real_t(1), A11, B10);
                 return;
@@ -187,14 +185,13 @@ void trsm_tri(Side sideA,
                 // Right, NoTrans, Upper, Diag
 
                 trsm_tri(sideA, uploB, transA, diagA, A00, B00);
-
+                
                 trsm_tri(sideA, uploB, transA, diagA, A11, B11);
 
-                gemm(Op::NoTrans, Op::NoTrans, real_t(-1), B00, A01, real_t(1),
-                     B01);
+                gemm(Op::NoTrans, Op::NoTrans, real_t(-1), B00, A01, real_t(1), B01);
 
                 trsm(sideA, uploA, transA, diagA, real_t(1), A11, B01);
-
+                
                 return;
             }
             else {
@@ -203,8 +200,7 @@ void trsm_tri(Side sideA,
 
                 trsm_tri(sideA, uploB, transA, diagA, A11, B11);
 
-                gemm(Op::NoTrans, Op::NoTrans, real_t(-1), B11, A10, real_t(1),
-                     B10);
+                gemm(Op::NoTrans, Op::NoTrans, real_t(-1), B11, A10, real_t(1), B10);
 
                 trsm(sideA, uploA, transA, diagA, real_t(1), A00, B10);
 
@@ -218,14 +214,13 @@ void trsm_tri(Side sideA,
             if (uploB == tlapack::Uplo::Upper) {
                 // Right, Trans or ConjTrans, Upper, Diag
                 trsm_tri(sideA, uploB, transA, diagA, A00, B00);
-
+                
                 trsm_tri(sideA, uploB, transA, diagA, A11, B11);
 
-                gemm(Op::NoTrans, Op::NoTrans, real_t(-1), B00, A01, real_t(1),
-                     B01);
+                gemm(Op::NoTrans, Op::NoTrans, real_t(-1), B00, A01, real_t(1), B01);
 
                 trsm(sideA, uploA, transA, diagA, real_t(1), A11, B01);
-
+                
                 return;
             }
             else {
@@ -235,8 +230,7 @@ void trsm_tri(Side sideA,
 
                 trsm_tri(sideA, uploB, transA, diagA, A11, B11);
 
-                gemm(Op::NoTrans, Op::NoTrans, real_t(-1), B11, A10, real_t(1),
-                     B10);
+                gemm(Op::NoTrans, Op::NoTrans, real_t(-1), B11, A10, real_t(1), B10);
 
                 trsm(sideA, uploA, transA, diagA, real_t(1), A00, B10);
                 return;
