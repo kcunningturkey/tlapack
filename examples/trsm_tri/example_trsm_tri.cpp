@@ -618,8 +618,8 @@ int main(int argc, char** argv)
     tlapack::Side sideA;
     tlapack::Op transA;
 
-    // transA = tlapack::Op::NoTrans;
-    transA = tlapack::Op::Trans;
+    transA = tlapack::Op::NoTrans;
+    // transA = tlapack::Op::Trans;
     // transA = tlapack::Op::ConjTrans;
 
     sideA = tlapack::Side::Left;
