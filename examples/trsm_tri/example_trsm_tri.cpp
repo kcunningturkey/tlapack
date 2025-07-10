@@ -72,143 +72,67 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
     MatrixMarket mm;
 
     mm.random(A);
+
+    for (idx_t i = 0; i < n; i++){
+        A(i, i) += real_t(n);
+    }
+
     mm.random(B);
 
     lacpy(Uplo::General, A, A_orig);
     lacpy(Uplo::General, B, B_orig);
 
-    if (transA == tlapack::Op:: NoTrans)  { 
-        //------------------------------NoTrans------------------------------------
-        if (uplo == tlapack::Uplo:: Lower) {  
-            //---------------------------Lower-------------------------------------
-
-            // Fill the lower part of A
-            for (idx_t i = 0; i < n; i++) {
-                for (idx_t j = 0; j < i + 1; j++) {
-                    if constexpr (tlapack::is_complex<T>) {
-                        A(i, j) = T(static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX),
-                                static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX));
-                    }
-                    else {
-                        A(i, j) = T(static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX));
-                    }
-                }
-            }
-
-            // Fill the lower part of B
-            for (idx_t i = 0; i < n; i++) {
-                for (idx_t j = 0; j < i + 1; j++) {
-                    if constexpr (tlapack::is_complex<T>) {
-                        B(i, j) = T(static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX),
-                                static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX));
-                    }
-                    else {
-                        B(i, j) = T(static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX));
-                    }
-                }
-            }
-
-            // Fill A with DEADBEEF
-            for (idx_t i = 0; i < n; i++) {
-                for (idx_t j = i + 1; j < n; j++) {
-                    if constexpr (tlapack::is_complex<T>) {
-                        A(i, j) = T(static_cast<real_t>(0xDEADBEEF),
-                                static_cast<real_t>(0xDEADBEEF));
-                    }
-                    else {
-                        A(i, j) = T(static_cast<real_t>(0xDEADBEEF));
-                    }
-                }
-            }
-
-            // Fill B with DEADBEEF
-            for (idx_t i = 0; i < n; i++) {
-                for (idx_t j = i + 1; j < n; j++) {
-                    if constexpr (tlapack::is_complex<T>) {
-                        B(i, j) = T(static_cast<real_t>(0xDEADBEEF),
-                                static_cast<real_t>(0xDEADBEEF));
-                    }
-                    else {
-                        B(i, j) = T(static_cast<real_t>(0xDEADBEEF));
-                    }
-                }
-            }
+    if (transA == tlapack::Op:: NoTrans)  { //------------------------------NoTrans------------------------------------
+        if (uplo == tlapack::Uplo:: Lower) {  //---------------------------Lower-------------------------------------
 
             std::vector<T> X_;
             auto X = new_matrix(X_, n, n);
             lacpy(GENERAL, B, X);
 
-            std::vector<T> A_0_;
-            auto A_0 = new_matrix(A_0_, n, n);
-            lacpy(GENERAL, A, A_0);
-
-            // Remove 0xDEADBEEF to compute the norms
-            for (idx_t j = 0; j < n; j++)
-                for (idx_t i = 0; i < j; i++)
-                    if constexpr (tlapack::is_complex<T>) {
-                        A_0(i, j) = T(0, 0);
-                        B(i, j) = T(0, 0);
-                    }
-                    else {
-                        A_0(i, j) = T(0);
-                        B(i, j) = T(0);
-                    }
-
-            real_t normA = lange(Norm::Fro, A_0);
-            real_t normB = lange(Norm::Fro, B);
-
             trsm_tri(sideA, uplo, transA, diagA, A, X);
 
             // Remove 0xDEADBEEF
+            real_t sum(0);
             for (idx_t j = 0; j < n; j++)
                 for (idx_t i = 0; i < j; i++)
-                    if constexpr (tlapack::is_complex<T>) {
-                        X(i, j) -= T(static_cast<real_t>(0xDEADBEEF),
-                                static_cast<real_t>(0xDEADBEEF));
-                    }
-                    else {
-                        X(i, j) -= T(static_cast<real_t>(0xDEADBEEF));
-                    }
+                        sum += abs1(X(i, j) - B(i, j));
+            
+            std::cout << "sum = " << sum << std::endl;
+
+
+            auto temp = slice(A, range(0, n-1), range(1, n));
+            laset(Uplo::Upper, real_t(0), real_t(0), temp);
+
+            auto temp2 = slice(B, range(0, n-1), range(1, n));
+            laset(Uplo::Upper, real_t(0), real_t(0), temp2);
+
+            real_t normA = lange(Norm::Fro, A);
+            real_t normB = lange(Norm::Fro, B);
+
+            auto temp3 = slice(X, range(0, n-1), range(1, n));
+            laset(Uplo::Upper, real_t(0), real_t(0), temp3);
+
+            real_t normX = lange(Norm::Fro, X);
 
             // Check
             trmm(sideA, uplo, transA, diagA, real_t(1), A, X);
+
             for (idx_t i = 0; i < n; i++) {
                 for (idx_t j = 0; j < n; j++) {
                     X(i, j) -= B(i, j);
                 }
             }
 
-            real_t normX = lange(Norm::Fro, X);
+            real_t normRes = lange(Norm::Fro, X);
 
-            std::cout << "Norm = " << normX / (normB + normA * normX) << std::endl;
+            std::cout << "Norm = " << normRes / (normB + normA * normX) << std::endl;
         }
-        else {  
-            //---------------------------Upper-------------------------------------
+        else { //---------------------------Upper-------------------------------------
+            
 
             std::vector<T> X_;
             auto X = new_matrix(X_, n, n);
             lacpy(GENERAL, B, X);
-
-            // // Remove 0xDEADBEEF to compute the norms
-            // for (idx_t j = 0; j < n; j++)
-            //     for (idx_t i = j + 1; i < n; i++)
-            //         if constexpr (tlapack::is_complex<T>) {
-            //             A(i, j) = T(0, 0);
-            //             B(i, j) = T(0, 0);
-            //         }
-            //         else {
-            //             A(i, j) = T(0);
-            //             B(i, j) = T(0);
-            //         }
-
-            // real_t normA = lange(Norm::Fro, A);
-            // real_t normB = lange(Norm::Fro, B);
 
             trsm_tri(sideA, uplo, transA, diagA, A, X);
 
@@ -235,7 +159,7 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
             real_t normX = lange(Norm::Fro, X);
             
             // Check
-            trmm(sideA, uplo, transA, diagA, real_t(1), A, X);
+            trmm(sideA, Uplo::Upper, transA, diagA, real_t(1), A, X);
 
             for (idx_t i = 0; i < n; i++) {
                 for (idx_t j = 0; j < n; j++) {
@@ -251,125 +175,51 @@ void run(Side sideA, uplo_t uplo, Op transA, Diag diagA, size_t n)
             std::cout << "Norm = " << normRes / (normB + normA * normX)  << std::endl;
         }
     }
-    else if ( transA == tlapack::Op:: Trans)  {
-        //-------------------------------Trans-------------------------------------
-        if (uplo == tlapack::Uplo:: Lower) {  
-            //---------------------------Lower-------------------------------------
-
-            // Fill the upper part of A
-            for (idx_t i = 0; i < n; i++) {
-                for (idx_t j = i; j < n; j++) {
-                    if constexpr (tlapack::is_complex<T>) {
-                        A(i, j) = T(static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX),
-                                static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX));
-                    }
-                    else {
-                        A(i, j) = T(static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX));
-                    }
-                }
-            }
-
-            // Fill the lower part of B
-            for (idx_t i = 0; i < n; i++) {
-                for (idx_t j = 0; j < i + 1; j++) {
-                    if constexpr (tlapack::is_complex<T>) {
-                        B(i, j) = T(static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX),
-                                static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX));
-                    }
-                    else {
-                        B(i, j) = T(static_cast<real_t>(rand()) /
-                                static_cast<real_t>(RAND_MAX));
-                    }
-                }
-            }
-
-            // Fill A with DEADBEEF
-            for (idx_t i = 0; i < n; i++) {
-                for (idx_t j = 0; j < i; j++) {
-                    if constexpr (tlapack::is_complex<T>) {
-                        A(i, j) = T(static_cast<real_t>(0xDEADBEEF),
-                                static_cast<real_t>(0xDEADBEEF));
-                    }
-                    else {
-                        A(i, j) = T(static_cast<real_t>(0xDEADBEEF));
-                    }
-                }
-            }
-
-            // Fill B with DEADBEEF
-            for (idx_t i = 0; i < n; i++) {
-                for (idx_t j = i + 1; j < n; j++) {
-                    if constexpr (tlapack::is_complex<T>) {
-                        B(i, j) = T(static_cast<real_t>(0xDEADBEEF),
-                                static_cast<real_t>(0xDEADBEEF));
-                    }
-                    else {
-                        B(i, j) = T(static_cast<real_t>(0xDEADBEEF));
-                    }
-                }
-            }
+    else if ( transA == tlapack::Op:: Trans)  { //-------------------------------Trans-------------------------------------
+        if (uplo == tlapack::Uplo:: Lower) { //---------------------------Lower-------------------------------------
+            
 
             std::vector<T> X_;
             auto X = new_matrix(X_, n, n);
             lacpy(GENERAL, B, X);
 
-            std::vector<T> A_0_;
-            auto A_0 = new_matrix(A_0_, n, n);
-            lacpy(GENERAL, A, A_0);
-
-            // Remove 0xDEADBEEF to compute the norms
-            for (idx_t j = 0; j < n; j++) {
-                for (idx_t i = j + 1; i < n; i++)
-                    if constexpr (tlapack::is_complex<T>) {
-                        A_0(i, j) = T(0, 0);
-                    }
-                    else {
-                        A_0(i, j) = T(0);
-                    }
-                for (idx_t i = 0; i < j; i++)
-                    if constexpr (tlapack::is_complex<T>) {
-                        B(i, j) = T(0, 0);
-                    }
-                    else {
-                        B(i, j) = T(0);
-                    }
-            }
-
-            real_t normA = lange(Norm::Fro, A_0);
-            real_t normB = lange(Norm::Fro, B);
-
             trsm_tri(sideA, uplo, transA, diagA, A, X);
 
-            // Remove 0xDEADBEEF
+            real_t sum(0);
             for (idx_t j = 0; j < n; j++)
                 for (idx_t i = 0; i < j; i++)
-                    if constexpr (tlapack::is_complex<T>) {
-                        X(i, j) -= T(static_cast<real_t>(0xDEADBEEF),
-                                static_cast<real_t>(0xDEADBEEF));
-                    }
-                    else {
-                        X(i, j) -= T(static_cast<real_t>(0xDEADBEEF));
-                    }
+                        sum += abs1(X(i, j) - B(i, j));
+
+            std::cout << "sum = " << sum << std::endl;
+
+            auto temp = slice(A, range(1, n), range(0, n- 1));
+            laset(Uplo::Lower, real_t(0), real_t(0), temp);
+
+            auto temp2 = slice(B, range(0, n- 1), range(1, n));
+            laset(Uplo::Upper, real_t(0), real_t(0), temp2);
+
+            real_t normA = lange(Norm::Fro, A);
+            real_t normB = lange(Norm::Fro, B);
+
+            auto temp3 = slice(X, range(0, n- 1), range(1, n));
+            laset(Uplo::Upper, real_t(0), real_t(0), temp3);
+
+            real_t normX = lange(Norm::Fro, X);
 
             // Check
-            trmm(sideA, tlapack::Uplo::Upper, transA, diagA, real_t(1), A, X);
+            trmm(sideA, Uplo::Upper, transA, diagA, real_t(1), A, X);
+
             for (idx_t i = 0; i < n; i++) {
                 for (idx_t j = 0; j < n; j++) {
                     X(i, j) -= B(i, j);
                 }
             }
 
-            real_t normX = lange(Norm::Fro, X);
+            real_t normRes = lange(Norm::Fro, X);
 
-            std::cout << "Norm = " << normX / (normB + normA * normX) << std::endl;
+            std::cout << "Norm = " << normRes / (normB + normA * normX) << std::endl;
         }
-        else {  
-            //---------------------------Upper-------------------------------------
+        else { //---------------------------Upper-------------------------------------
 
             // Fill the lower part of A
             for (idx_t i = 0; i < n; i++) {
@@ -734,41 +584,109 @@ int main(int argc, char** argv)
 
     diagA = tlapack::Diag::NonUnit;
 
+    // sideA = tlapack::Side::Left; ///////////////// Works
+    // transA = tlapack::Op::NoTrans;
+    // uplo = tlapack::Uplo::Upper;
+
+    // printf("***********************\n");
+    // std::cout << sideA << ", " << transA << ", " << uplo << std::endl;
+    // printf("***********************\n");
+    // printf("run< float  >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<float>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< double >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<double>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< long double >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<long double>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< complex<float> >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<std::complex<float>>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< complex<double> >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<std::complex<double>>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+    
+
+   
+    // sideA = tlapack::Side::Left; ///////////////// Works
+    // transA = tlapack::Op::NoTrans;
+    // uplo = tlapack::Uplo::Lower;
+
+    // printf("***********************\n");
+    // std::cout << sideA << ", " << transA << ", " << uplo << std::endl;
+    // printf("***********************\n");
+    // printf("run< float  >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<float>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< double >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<double>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< long double >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<long double>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< complex<float> >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<std::complex<float>>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< complex<double> >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<std::complex<double>>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+ 
+
+    // sideA = tlapack::Side::Left; ////////////// Doesn't work
+    // transA = tlapack::Op::Trans;
+    // uplo = tlapack::Uplo::Upper;
+
+    // printf("***********************\n");
+    // std::cout << sideA << ", " << transA << ", " << uplo << std::endl;
+    // printf("***********************\n");
+    // printf("run< float  >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<float>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< double >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<double>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< long double >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<long double>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< complex<float> >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<std::complex<float>>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+
+    // printf("run< complex<double> >( %d, %d )\n", static_cast<int>(n),
+    //         static_cast<int>(n));
+    // run<std::complex<double>>(sideA, uplo, transA, diagA, n);
+    // printf("-----------------------\n");
+    
+
     sideA = tlapack::Side::Left;
-    transA = tlapack::Op::NoTrans;
-    uplo = tlapack::Uplo::Upper;
-
-    printf("***********************\n");
-    std::cout << sideA << ", " << transA << ", " << uplo << std::endl;
-    printf("***********************\n");
-    printf("run< float  >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<float>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< double >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<double>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< long double >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<long double>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< complex<float> >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<std::complex<float>>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< complex<double> >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<std::complex<double>>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    return 0;
-    sideA = tlapack::Side::Left;
-    transA = tlapack::Op::NoTrans;
+    transA = tlapack::Op::Trans;
     uplo = tlapack::Uplo::Lower;
 
     printf("***********************\n");
@@ -799,69 +717,7 @@ int main(int argc, char** argv)
     run<std::complex<double>>(sideA, uplo, transA, diagA, n);
     printf("-----------------------\n");
 
-    sideA = tlapack::Side::Left;
-    transA = tlapack::Op::Trans;
-    uplo = tlapack::Uplo::Upper;
-
-    printf("***********************\n");
-    std::cout << sideA << ", " << transA << ", " << uplo << std::endl;
-    printf("***********************\n");
-    printf("run< float  >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<float>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< double >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<double>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< long double >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<long double>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< complex<float> >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<std::complex<float>>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< complex<double> >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<std::complex<double>>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    sideA = tlapack::Side::Left;
-    transA = tlapack::Op::Trans;
-    uplo = tlapack::Uplo::Lower;
-
-    printf("***********************\n");
-    std::cout << sideA << ", " << transA << ", " << uplo << std::endl;
-    printf("***********************\n");
-    printf("run< float  >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<float>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< double >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<double>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< long double >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<long double>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< complex<float> >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<std::complex<float>>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
-
-    printf("run< complex<double> >( %d, %d )\n", static_cast<int>(n),
-            static_cast<int>(n));
-    run<std::complex<double>>(sideA, uplo, transA, diagA, n);
-    printf("-----------------------\n");
+   return 0;
 
     sideA = tlapack::Side::Left;
     transA = tlapack::Op::ConjTrans;
